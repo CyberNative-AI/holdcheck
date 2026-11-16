@@ -6,6 +6,7 @@ follower stops b/2 below it; down, b/2 above; plus a constant bias and Gaussian 
 quantised to whole encoder steps and stored either in degrees or in -100..100 over a calibrated
 range, as LeRobot does. A teleop-like command (ramps, holds, hand jitter) drives it.
 """
+import json
 import math
 import sys
 import unittest
@@ -109,6 +110,98 @@ class T(unittest.TestCase):
     def test_small_lost_motion_2(self):
         # lost motion smaller than the hand's jitter must not read high
         self.check(self.run_case(2, 0.5, 1, "range"), 2, 0.5, 1, "range")
+
+    def test_large_lost_motion_90(self):
+        # 0.4.1: play above the 60-step base grid is refitted on the wide grid, not pinned at 60
+        # (free-hold scatter is not checked: with 90 steps of play the fixture leaves too few free holds)
+        c = self.run_case(90, 2.0, 0, "degrees")
+        for k in hc.SO_JOINTS[:-1]:
+            self.assertAlmostEqual(c["joints"][k]["lost_motion_steps"], 90, delta=1.01, msg=k)
+            lo, hi = c["joints"][k]["lost_motion_ci90_steps"]
+            self.assertTrue(lo <= 90 <= hi and hi < hc.B_WIDE[-1], msg=(k, lo, hi))
+        self.assertEqual(c["correction"], {})  # 90 steps is beyond CORR_MAX_STEPS: measured, not corrected
+        t = hc.report_text(c)
+        self.assertIn("No correction for elbow_flex: its 7.9 deg of play is more than software should cancel", t)
+
+    def test_correction_up_to_60_steps(self):
+        c = self.run_case(50, 2.0, 0, "degrees")
+        for k in hc.SO_JOINTS[:-1]:
+            self.assertAlmostEqual(c["correction"][k]["half_play_steps"], 25, delta=0.51, msg=k)
+        self.assertNotIn("No correction", hc.report_text(c))
+
+    def test_play_beyond_wide_grid_not_measured(self):
+        c = self.run_case(300, 2.0, 0, "degrees")
+        j = c["joints"]["elbow_flex"]
+        self.assertNotIn("lost_motion_steps", j)
+        self.assertIn("more than servo play", j["why"])
+        self.assertEqual(c["correction"], {})
+        self.assertIn("not_computed", hc.tip_figures(c["joints"]))
+        self.assertIn("more than servo play", hc.report_text(c))
+
+    def test_correction_needs_known_step(self):
+        # 0.4.2: no correction for a family whose encoder step is not known, nor for a joint whose
+        # -100..100 range spans more than one turn; each gets one stated line, and the tip sentence
+        # offers the correction only when there is one
+        c = self.run_case(20, 2.0, 0, "range")
+        c["tip"] = hc.tip_figures(c["joints"])
+        self.assertEqual(len(c["correction"]), 5)
+        self.assertIn("so does the play correction below.", hc.report_text(c))
+        foreign = json.loads(json.dumps(c))
+        foreign["robot_type"] = "piper_follower"
+        foreign["correction"] = hc.play_correction(foreign)
+        self.assertEqual(foreign["correction"], {})
+        self.assertEqual([k for k, _ in hc.correction_withheld(foreign)], [None])
+        t = hc.report_text(foreign)
+        self.assertIn("No correction for this arm", t)
+        self.assertNotIn("so does the play correction", t)
+        self.assertIn("removes the lost-motion part.", t)
+        wide = json.loads(json.dumps(c))
+        wide["joints"]["elbow_flex"]["lattice"]["calibrated_range_steps"] = 165746.0
+        wide["correction"] = hc.play_correction(wide)
+        self.assertNotIn("elbow_flex", wide["correction"])
+        self.assertEqual(len(wide["correction"]), 4)
+        self.assertIn("No correction for elbow_flex: its recorded -100..100 range spans 165746", hc.report_text(wide))
+        # a partial correction does not promise the one-side figure: the same-side sentence and the
+        # correction lead both say elbow_flex's play is left
+        t = hc.report_text(wide)
+        self.assertEqual(hc.correction_left(wide), ["elbow_flex"])
+        self.assertNotIn("so does the play correction", t)
+        self.assertIn("removes it only on the joints it lists, not on elbow_flex.", t)
+        self.assertIn("With that correction, the one-side figure is not established for this arm.", t)
+        self.assertIn("This card corrects only the joints listed here; the\nplay of elbow_flex is left", t)
+        self.assertIn("We have not tried it on a physical arm.", t)
+        self.assertEqual(hc.correction_left(c), [])
+        self.assertNotIn("not established", hc.report_text(c))
+
+    def test_small_family_not_compared(self):
+        c = self.run_case(20, 2.0, 0, "degrees")
+        summ = {"joints": {}, "by_family": {"koch": {"elbow_flex": {}}, "other:piper_follower": {"elbow_flex": {}}},
+                "arms_by_family": {"koch": 12, "other:piper_follower": 1}}
+        self.assertEqual(hc.compare_table(summ, "other:piper_follower"), {})
+        self.assertEqual(hc.compare_table(summ, "koch"), {"elbow_flex": {}})
+        self.assertEqual(hc.compare_table(None, "koch"), {})
+
+    def test_wide_refit_leaves_other_joints_unchanged(self):
+        # the pinned joint is refitted with the same bootstrap draws, so the result equals a fit on the
+        # wide grid from the start and every later joint keeps the figures it had before the refit
+        rng = np.random.default_rng(7)
+        cols = [sim(90 if k == "shoulder_pan" else 12, 2.0, 0, "degrees", rng) for k in hc.SO_JOINTS]
+        A, S, ep = np.stack([x[0] for x in cols], 1), np.stack([x[1] for x in cols], 1), cols[0][2]
+        new = hc.analyse(info6(), A, S, ep, np.random.default_rng(0))
+        base = hc.B_GRID
+        try:
+            hc.B_GRID = hc.B_WIDE  # play_predictions/fit_play defaults are bound at import: pass through analyse's names
+            hc.play_predictions.__defaults__ = (hc.B_WIDE,)
+            hc.fit_play.__defaults__ = (None, hc.B_WIDE)
+            hc.boot_play.__defaults__ = (400, hc.B_WIDE)
+            wide = hc.analyse(info6(), A, S, ep, np.random.default_rng(0))
+        finally:
+            hc.B_GRID = base
+            hc.play_predictions.__defaults__ = (base,)
+            hc.fit_play.__defaults__ = (None, base)
+            hc.boot_play.__defaults__ = (400, base)
+        self.assertAlmostEqual(new["joints"]["shoulder_pan"]["lost_motion_steps"], 90, delta=1.01)
+        self.assertEqual(new["joints"], wide["joints"])
 
     def test_gripper_squeeze_excludes_holds(self):
         rng = np.random.default_rng(7)

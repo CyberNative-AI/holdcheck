@@ -76,7 +76,21 @@
         <p class="hc-for" id="hc-for"></p>
         <div class="hc-answer" id="hc-tip"></div>
         <p class="hc-do" id="hc-do"></p>
-        <div class="limit"><span class="label">Limit</span><span id="hc-tip-limit">A placement whose lead-in or tolerance is smaller than these will miss about 1 time in 20 or more from this arm's servos alone, before camera, calibration and printed-part play are added. Approaching every target from the same side removes the lost-motion part.</span></div>
+        <div class="limit"><span class="label">Limit</span><span id="hc-tip-limit">A placement whose lead-in or tolerance is smaller than these will miss about 1 time in 20 or more from this arm's servos alone, before camera, calibration and printed-part play are added. Approaching every target from the same side removes the lost-motion part; so does the play correction below.</span></div>
+        <div class="hc-fix" id="hc-fix" hidden>
+          <h3 class="label" id="hc-fix-h">Or cancel the play in software</h3>
+          <p id="hc-fix-lead"></p>
+          <div class="hc-table" id="hc-fix-rows"></div>
+          <div class="limit hc-withheld" id="hc-withheld" hidden><span class="label">Not corrected</span><div id="hc-withheld-lines"></div></div>
+          <div class="limit hc-untried"><span class="label">Limit</span><span id="hc-fix-caution"></span></div>
+          <div class="hc-fix-get" id="hc-fix-get">
+            <a class="hc-dl" href="py/playfix.py" download="playfix.py" type="text/x-python">Download playfix.py</a>
+            <p class="hc-note">4 KB of Python, no dependencies. Wraps a LeRobot follower's <code>send_action</code>, reading the card JSON from 03 below; give its file name in place of <code>card.json</code>.</p>
+          </div>
+          <pre class="hc-usage" id="hc-usage" tabindex="0" role="region" aria-label="Usage, three lines of Python"><code>import json
+from playfix import PlayCorrection, wrap_send_action
+robot = wrap_send_action(robot, PlayCorrection.from_card(json.load(open("card.json"))))</code></pre>
+        </div>
       </div>
     </section>
 
@@ -86,7 +100,8 @@
         <h2 id="hc-joints-h">Where each joint sits among other SO arms.</h2>
         <p><b>Lost motion</b>: how far apart the follower settles when it arrives at the same command from above and from below. <b>Scatter</b>: how much it varies arriving from one side. Both at the servo's output shaft. 1 encoder step = 0.088 deg.</p>
         <div class="hc-table" id="hc-joints"></div>
-        <p class="hc-key"><span><i class="hc-key-you" aria-hidden="true"></i>this arm</span> <span><i class="hc-key-mid" aria-hidden="true"></i>median of other arms</span> <span><i class="hc-key-band" aria-hidden="true"></i>their middle half</span> <span><i class="hc-key-wide" aria-hidden="true"></i>8 in 10 of them</span> <span>Left is tighter.</span></p>
+        <p class="hc-note" id="hc-compare-note" hidden></p>
+        <p class="hc-key" id="hc-key"><span><i class="hc-key-you" aria-hidden="true"></i>this arm</span> <span><i class="hc-key-mid" aria-hidden="true"></i>median of other arms</span> <span><i class="hc-key-band" aria-hidden="true"></i>their middle half</span> <span><i class="hc-key-wide" aria-hidden="true"></i>8 in 10 of them</span> <span>Left is tighter.</span></p>
         <p class="hc-note" id="hc-scatter-note">Scatter is from holds of 1 s or more with an empty gripper where the recording has enough of them.</p>
       </div>
     </section>
@@ -125,7 +140,7 @@
 <footer class="close">
   <div class="wrap">
     <p class="label">Prepared by CyberNative AI LLC, an AI-run company, using AI agents</p>
-    <p class="label">Arm play check · method 0.3.1</p>
+    <p class="label">Arm play check · method 0.4.2</p>
   </div>
 </footer>
 </body>

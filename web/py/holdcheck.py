@@ -20,6 +20,8 @@ lost motion at the tool.
 Usage (reads only meta/info.json and data/*.parquet, never videos):
   holdcheck.py --repo lerobot/community_dataset_v3 --subdir <contributor>/<dataset> --out card.json
   holdcheck.py --local <dir with meta/ and data/> --out card.json
+
+The card also carries each joint's play correction; playfix.py applies it to a LeRobot follower.
 """
 from __future__ import annotations
 
@@ -34,7 +36,7 @@ import urllib.request
 
 import numpy as np
 
-VERSION = "0.3.1"
+VERSION = "0.4.2"
 STEP_DEG = 360.0 / 4096.0
 HF = "https://huggingface.co"
 SO_JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
@@ -193,9 +195,23 @@ def robust_sd(v: np.ndarray) -> float:
 
 
 B_GRID = np.arange(0.0, 60.25, 0.25)  # candidate lost motion, encoder steps
+# 0.4.1: a fit or its 90% interval that reaches the top of B_GRID is refitted on B_WIDE (6.6% of the
+# corpus cards had a joint pinned at 60 steps while its median gap read 53-187). A fit still at the top
+# of B_WIDE (21 deg) is not servo play; the joint is reported as not measured.
+B_WIDE = np.arange(0.0, 240.25, 0.25)
+# The play correction is given only up to 60 steps (5.3 deg) of play, the range the 0.4 check covered.
+# Larger play is a loose horn, screw or gear (elbow p90 is 4.7 deg); aiming far past a target is not a fix.
+CORR_MAX_STEPS = 60.0
+# 0.4.2: the correction is given only where an encoder step is known to be 1/4096 turn (Feetech STS3215 on
+# SO-100/101, Dynamixel on Koch) and, for -100..100 recordings, the calibrated range is at most one turn.
+# Elsewhere the step, and so the size of the correction, is not known (Piper's range read 40 turns).
+CORR_FAMILIES = ("so100", "so101", "koch", "mixed")
+TURN_STEPS = 4096
+# A family is placed against other arms only when the corpus has at least this many of them.
+COMPARE_MIN_ARMS = 5
 
 
-def play_predictions(holds) -> np.ndarray:
+def play_predictions(holds, grid: np.ndarray = B_GRID) -> np.ndarray:
     """Predicted settle error (steps) at each hold end for every b in B_GRID: holds x grid.
 
     A servo loop with lost motion b behaves as a play operator: the output moves only when the
@@ -204,8 +220,8 @@ def play_predictions(holds) -> np.ndarray:
     which is why a plain gap of median errors reads short. The operator starts at the approach
     point, where the command was travelling in the approach direction (output trails by b/2).
     """
-    half = B_GRID / 2.0
-    P = np.empty((len(holds), B_GRID.size))
+    half = grid / 2.0
+    P = np.empty((len(holds), grid.size))
     for r, h in enumerate(holds):
         d, w = h[0], h[3]
         p = w[0] - d * half
@@ -215,20 +231,20 @@ def play_predictions(holds) -> np.ndarray:
     return P
 
 
-def fit_play(e: np.ndarray, P: np.ndarray, idx=None):
+def fit_play(e: np.ndarray, P: np.ndarray, idx=None, grid: np.ndarray = B_GRID):
     """b minimising the absolute deviation of (observed - predicted) about its median."""
     if idx is not None:
         e, P = e[idx], P[idx]
     R = e[:, None] - P
     cost = np.abs(R - np.median(R, 0)).sum(0)
     g = int(np.argmin(cost))
-    return float(B_GRID[g]), R[:, g]
+    return float(grid[g]), R[:, g]
 
 
-def boot_play(e: np.ndarray, P: np.ndarray, rng, n=400):
+def boot_play(e: np.ndarray, P: np.ndarray, rng, n=400, grid: np.ndarray = B_GRID):
     b = np.empty(n)
     for i in range(n):
-        b[i] = fit_play(e, P, rng.integers(0, e.size, e.size))[0]
+        b[i] = fit_play(e, P, rng.integers(0, e.size, e.size), grid)[0]
     return float(np.percentile(b, 5)), float(np.percentile(b, 95))
 
 
@@ -340,7 +356,20 @@ def analyse(info: dict, A: np.ndarray, S: np.ndarray, EP: np.ndarray, rng) -> di
                 naive = float(np.median(neg) - np.median(pos))  # median-gap estimate, reads short under jitter
                 P = play_predictions(h)
                 gap, r = fit_play(e, P)
+                st = rng.bit_generator.state
                 lo, hi = boot_play(e, P, rng)
+                if hi >= B_GRID[-1]:
+                    # same bootstrap draws on the wide grid, so the rng ends where it would have
+                    rng.bit_generator.state = st
+                    P = play_predictions(h, B_WIDE)
+                    gap, r = fit_play(e, P, grid=B_WIDE)
+                    lo, hi = boot_play(e, P, rng, grid=B_WIDE)
+                    if gap >= B_WIDE[-1]:
+                        jr.update({"lost_motion_median_gap_steps": naive,
+                                   "why": f"the fit reached {B_WIDE[-1]:.0f} steps ({B_WIDE[-1] * STEP_DEG:.0f} deg), "
+                                          "more than servo play; check the calibration and the recording"})
+                        card["joints"][k] = jr
+                        continue
                 sd = float(np.nanmedian([robust_sd(r[d > 0]), robust_sd(r[d < 0])]))
                 bias = float(np.median(r))
                 jr.update(
@@ -381,7 +410,65 @@ def analyse(info: dict, A: np.ndarray, S: np.ndarray, EP: np.ndarray, rng) -> di
                     jr["scatter_sd_free_steps"] = sdf
                     jr["scatter_sd_free_deg"] = sdf * STEP_DEG
         card["joints"][k] = jr
+    card["correction"] = play_correction(card)
     return card
+
+
+UNIT_NAMES = {"degrees": "deg", "range_m100_100": "range units (-100..100)", "raw_steps": "steps"}
+
+
+def correction_skip(card: dict) -> list:
+    """Tip joints with a play fit that get no correction, and why: [(joint, sentence)], one line each.
+
+    A family whose encoder step is not known gets one line for the whole arm (joint None)."""
+    fam = family(card.get("robot_type"))
+    js = card.get("joints") or {}
+    fitted = [k for k in SO_JOINTS[:5] if "lost_motion_steps" in js.get(k, {}) and js[k].get("lattice", {}).get("ok")]
+    if fam not in CORR_FAMILIES:
+        if not fitted:
+            return []
+        rt = card.get("robot_type") or "none"
+        return [(None, f"No correction for this arm: holdcheck's encoder step is that of SO-100/101 and Koch servos "
+                       f"(1/{TURN_STEPS} turn), and for robot_type {rt} the step, so the size of a correction, is not known.")]
+    out = []
+    for k in fitted:
+        j, lat = js[k], js[k]["lattice"]
+        if lat.get("calibrated_range_steps", 0.0) > TURN_STEPS * 1.01:
+            out.append((k, f"No correction for {k}: its recorded -100..100 range spans {lat['calibrated_range_steps']:.0f} "
+                           f"encoder steps, more than one servo turn ({TURN_STEPS}). Check that joint's calibration."))
+        elif j["lost_motion_steps"] > CORR_MAX_STEPS:
+            out.append((k, f"No correction for {k}: its {j['lost_motion_deg']:.1f} deg of play is more than software should "
+                           f"cancel (it is given up to {CORR_MAX_STEPS * STEP_DEG:.1f} deg). Check that joint's horn screws and servo."))
+    return out
+
+
+def play_correction(card: dict) -> dict:
+    """What playfix.py adds to each command: half the fitted play, in the recording's own action units.
+
+    The closed servo loop settles half its play short of the target, on the side it came from.
+    Aiming that far past the target, in the direction the joint is moving, lands it on the target
+    from either side. A negative fitted play is taken as none. Joints in correction_skip() get none.
+    """
+    names = card.get("action_names") or []
+    skip = correction_skip(card)
+    if any(k is None for k, _ in skip):
+        return {}
+    skipped = {k for k, _ in skip}
+    out = {}
+    for k in SO_JOINTS[:5]:
+        j = card["joints"].get(k, {})
+        lat = j.get("lattice", {})
+        if "lost_motion_steps" not in j or not lat.get("ok") or k in skipped:
+            continue
+        half = max(float(j["lost_motion_steps"]), 0.0) / 2.0
+        out[k] = {
+            "action_key": next((n for n in names if joint_key(n) == k), f"{k}.pos"),
+            "half_play_steps": half,
+            "half_play_units": half * float(lat["step_units"]),
+            "half_play_deg": half * STEP_DEG,
+            "units": UNIT_NAMES.get(lat.get("mode"), lat.get("mode")),
+        }
+    return out
 
 
 TIPMAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tipmap.json")
@@ -433,6 +520,18 @@ def _place(v: float, p: dict) -> str:
     return f"{w} (median {p['p50']:.2f})"
 
 
+def compare_table(summary: dict | None, fam: str) -> dict:
+    """The per-joint corpus table a card of this family is placed against; empty when the corpus has
+    fewer than COMPARE_MIN_ARMS arms of the family (an arm is not compared with itself)."""
+    if not summary:
+        return {}
+    if fam in ("so100", "so101"):
+        return summary.get("joints", {})
+    if summary.get("arms_by_family", {}).get(fam, 0) < COMPARE_MIN_ARMS:
+        return {}
+    return summary.get("by_family", {}).get(fam, {})
+
+
 def report_text(card: dict, summary: dict | None = None) -> str:
     """The card as a person reads it; with a corpus summary, each joint is placed against it."""
     if "error" in card:
@@ -448,11 +547,11 @@ def report_text(card: dict, summary: dict | None = None) -> str:
         f"{'joint':<14}{'holds':>7}{'lost motion deg':>17}{'90% interval':>16}{'scatter deg':>13}{'bias deg':>10}  vs other arms (lost motion; scatter)",
     ]
     fam = family(card.get("robot_type"))
-    table = summary.get("joints", {}) if summary and fam in ("so100", "so101") else (summary or {}).get("by_family", {}).get(fam, {})
+    table = compare_table(summary, fam)
     for k in SO_JOINTS[:-1]:
         j = card["joints"].get(k, {})
         if "lost_motion_deg" not in j:
-            why = j.get("lattice", {}).get("why") or f"too few holds ({j.get('holds_pos', 0)} up, {j.get('holds_neg', 0)} down)"
+            why = j.get("why") or j.get("lattice", {}).get("why") or f"too few holds ({j.get('holds_pos', 0)} up, {j.get('holds_neg', 0)} down)"
             L.append(f"{k:<14}{'':>7}  not measured: {why}")
             continue
         lo, hi = (x * STEP_DEG for x in j["lost_motion_ci90_steps"])
@@ -471,7 +570,7 @@ def report_text(card: dict, summary: dict | None = None) -> str:
     L.append("")
     if "one_side_p95_mm" not in t:
         L.append(f"At the gripper: {t.get('not_computed', 'not computed')}")
-        return "\n".join(L)
+        return "\n".join(L + correction_text(card))
     ts = (summary or {}).get("tip", {}) if fam in ("so100", "so101") else {}
     L += [
         "At the gripper (sideways error of the tool point, table poses 13-25 cm in front of the base):",
@@ -479,9 +578,63 @@ def report_text(card: dict, summary: dict | None = None) -> str:
         f"  arriving from any side      95% within {t['either_side_p95_mm']:.1f} mm   {_place(t['either_side_p95_mm'], ts.get('either_side_p95_mm', {}))}",
         "A placement whose lead-in or tolerance is smaller than these will miss about 1 time in 20 or more from",
         "this arm's servos alone, before camera, calibration and printed-part play are added. Approaching every",
-        "target from the same side removes the lost-motion part.",
+        *("target from the same side removes the lost-motion part" + same_side_clause(card)).split("\n"),
     ]
-    return "\n".join(L)
+    return "\n".join(L + correction_text(card))
+
+
+def correction_left(card: dict) -> list:
+    """Tip joints with play (fitted lost motion above 0) that the card's correction does not cover.
+
+    The one-side gripper figure leaves out every tip joint's play, so a correction reaches it only when
+    this list is empty; with a joint left, that joint's play still adds to arrivals from either side."""
+    c = card.get("correction") or {}
+    js = card.get("joints") or {}
+    return [k for k in TIP_JOINTS if js.get(k, {}).get("lost_motion_deg", 0.0) > 0 and k not in c]
+
+
+def same_side_clause(card: dict) -> str:
+    """How report_text's same-side sentence ends: whether the play correction also removes the lost-motion part.
+    A newline marks report_text's line break; the page joins it with a space."""
+    if not card.get("correction"):
+        return "."
+    left = correction_left(card)
+    if not left:
+        return "; so does the play correction below."
+    return (f"; the play correction below removes it only on the joints it lists, not on {', '.join(left)}.\n"
+            "With that correction, the one-side figure is not established for this arm.")
+
+
+def correction_withheld(card: dict) -> list:
+    """Tip joints (or the whole arm, joint None) with a play fit that get no correction: [(joint, line)].
+    correction_text() ends with these lines, one each, in this order."""
+    return correction_skip(card)
+
+
+def correction_text(card: dict) -> list:
+    c = card.get("correction") or {}
+    w = [line for _, line in correction_withheld(card)]
+    if not c:
+        return ([""] + w) if w else []
+    left = correction_left(card)
+    L = [
+        "",
+        "Play correction (playfix.py in the source repository): aim this far past each target, in the",
+        "direction the joint is moving. On the recordings of 122 arms, corrected arrivals from any side",
+    ] + ([
+        "landed as close as arrivals from one side. We have not tried it on a physical arm. Fit it from a",
+        "recent recording of this arm, and again after re-assembly, re-calibration or a servo swap.",
+    ] if not left else [
+        "landed as close as arrivals from one side. This card corrects only the joints listed here; the",
+        f"play of {', '.join(left)} is left, so the one-side figure is not established with this correction.",
+        "We have not tried it on a physical arm. Fit it from a recent recording of this arm, and again",
+        "after re-assembly, re-calibration or a servo swap.",
+    ]) + [
+        f"  {'joint':<14}{'add':>8}  {'units':<25}{'deg':>6}",
+    ]
+    for k, v in c.items():
+        L.append(f"  {k:<14}{v['half_play_units']:>8.2f}  {v['units']:<25}{v['half_play_deg']:>6.2f}")
+    return L + w
 
 
 def main(argv=None):

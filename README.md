@@ -20,7 +20,9 @@ One value per arm, SO-100 and SO-101 together, measured at the servo output shaf
 | wrist_flex | 1.14 | 0.26 |
 | wrist_roll | 0.73 | 0.13 |
 
-At the gripper (280 arms with all five joints measured), the 95% sideways placement radius of a typical arm is **3.6 mm when every target is approached from the same side** and **9.2 mm from any side** (p10 to p90: 1.8 to 7.0 mm, and 6.6 to 14.9 mm). If you place things with an SO arm, approaching from one side is the cheapest accuracy you can buy.
+At the gripper (280 arms with all five joints measured), the 95% sideways placement radius of a typical arm is **3.6 mm when every target is approached from the same side** and **9.2 mm from any side** (p10 to p90: 1.8 to 7.0 mm, and 6.6 to 16.1 mm). If you place things with an SO arm, approaching from one side is the cheapest accuracy you can buy.
+
+If your path or policy can't approach from one side, `holdcheck/playfix.py` cancels the measured play in software: it aims half each joint's play past the target in the direction the joint is moving. On the recordings of 122 arms, a correction fitted on one recording and applied to another landed about as close from any side as one-side approaches (median ratio 1.02). If your card withholds a joint with play, the correction covers only the joints it lists, and the card says the one-side figure is not established with it. We have not tried it on a physical arm. Your recording made through it is that check, and holdcheck on that recording shows the play that is left. Refit after re-assembly, re-calibration or a servo swap. Details: [METHOD.md](METHOD.md#play-correction-04).
 
 These are the servos alone, a lower bound at the tool: horns, screws and printed links add more. Full method, tables and limits: [METHOD.md](METHOD.md).
 
@@ -33,6 +35,15 @@ cd holdcheck
 python holdcheck.py --repo <user>/<dataset> --out card.json --print
 python holdcheck.py --local ~/.cache/huggingface/lerobot/<user>/<dataset> --out card.json --print
 python test_holdcheck.py      # instrument check on a simulated arm with known play
+python test_playfix.py        # the correction on a simulated follower, closed loop
+```
+
+Apply the correction to a LeRobot follower (any robot object with `send_action`). `card.json` is the card written by `--out` above, or the file saved by the page's "Download card (JSON)" (named `holdcheck-<dataset>.json`); give its name:
+
+```python
+import json
+from playfix import PlayCorrection, wrap_send_action
+robot = wrap_send_action(robot, PlayCorrection.from_card(json.load(open("card.json"))))
 ```
 
 Rebuild the corpus table:
@@ -51,6 +62,7 @@ The browser page is in `web/`. It runs the same `holdcheck.py`, unchanged, in Py
 
 - `holdcheck/holdcheck.py`: the measurement (numpy and pyarrow)
 - `holdcheck/test_holdcheck.py`: instrument check on a simulated arm with known play, scatter and creep
+- `holdcheck/playfix.py`, `holdcheck/test_playfix.py`: the play correction from a card, a LeRobot `send_action` wrapper and its closed-loop check
 - `holdcheck/corpus.py`: list, run and summarise a corpus
 - `holdcheck/tipmap.json`, `holdcheck/tipmap.py`, `holdcheck/so101kin.py`, `holdcheck/model/`: SO-101 tool-point Jacobians at 64 table poses, and how to rebuild them. `python holdcheck/tipmap.py --out tipmap.json` reads the bundled MuJoCo Menagerie SO-101 model (`model/so101.xml`, Apache-2.0, see `model/NOTICE.md`) with numpy only and reproduces the shipped Jacobians exactly.
 - `holdcheck/corpus_summary.json`: the comparison table (percentiles only)

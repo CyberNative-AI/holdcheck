@@ -259,7 +259,7 @@ function tipFigure(name, fig, arms) {
   d.append(el("p", "hc-fig-what", "95% of arrivals land within this distance of the target, sideways."));
   const s = strip(fig.v, fig.pct, `${fig.text} millimetres; ${fig.place || "no comparison"} among ${arms || "other"} arms`);
   if (s) d.append(s);
-  if (fig.place) d.append(el("p", "hc-place", fig.place + (arms ? `, ${arms} arms` : "")));
+  if (fig.place) d.append(el("p", "hc-place", fig.place + (arms ? `, ${plural(arms, "arm")}` : "")));
   return d;
 }
 
@@ -327,6 +327,56 @@ function downloads(view, compact) {
   return box;
 }
 
+function showCorrection(c) {
+  // The card's play correction: the engine's own sentences (correction_text) and its row formats.
+  const box = $("hc-fix");
+  box.hidden = !c;
+  if (!c) return;
+  // Joints whose play is too large to correct: the engine's closing lines, set apart as limits. They can
+  // come alone (every tip joint withheld); then there is nothing to download or apply.
+  const w = $("hc-withheld");
+  w.hidden = !c.withheld.length;
+  $("hc-withheld-lines").replaceChildren(...c.withheld.map((x) => el("p", null, x)));
+  const some = c.rows.length > 0;
+  for (const id of ["hc-fix-lead", "hc-fix-rows", "hc-fix-get", "hc-usage"]) $(id).hidden = !some;
+  if (!some) {
+    $("hc-fix-caution").parentElement.hidden = true;
+    return;
+  }
+  $("hc-fix-lead").textContent = c.lead.join(" ");
+  const caution = $("hc-fix-caution");
+  caution.replaceChildren();
+  if (c.caution.length) {
+    caution.append(el("strong", null, c.caution[0]));
+    if (c.caution.length > 1) caution.append(" " + c.caution.slice(1).join(" "));
+  }
+  caution.parentElement.hidden = !c.caution.length;
+  const tbl = el("table", "hc-fixt");
+  tbl.append(el("caption", "hc-vh", "Play correction per joint: how far past each target to aim, in the recording's units and in degrees"));
+  const hr = el("tr");
+  for (const [h, cls] of [["Joint", ""], ["Add", "num"], ["Deg", "num"]]) {
+    const th = el("th", cls, h);
+    th.scope = "col";
+    hr.append(th);
+  }
+  const head = el("thead");
+  head.append(hr);
+  const body = el("tbody");
+  for (const r of c.rows) {
+    const tr = el("tr");
+    const th = el("th", null, JOINT_NAMES[r.joint] || r.joint);
+    th.scope = "row";
+    const add = el("td", "num");
+    add.append(el("span", "hc-v", r.add), el("span", "hc-ci", r.units));
+    const deg = el("td", "num");
+    deg.append(el("span", "hc-v", r.deg));
+    tr.append(th, add, deg);
+    body.append(tr);
+  }
+  tbl.append(head, body);
+  $("hc-fix-rows").replaceChildren(tbl);
+}
+
 function show(view) {
   window.__hcView = view; // read by the parity check harness
   if (view.state === "error") {
@@ -344,8 +394,12 @@ function show(view) {
   if (view.state === "few") {
     const ul = el("ul", "hc-why");
     for (const r of view.rows) ul.append(el("li", null, `${JOINT_NAMES[r.joint]}: not measured, ${r.why}`));
+    const has = `${idText()} has ${plural(view.episodes, "episode")} and ${view.frames.toLocaleString("en-US")} frames`;
+    if (view.rows.some((r) => !r.few)) {
+      return message("Nothing measured", "No joint could be measured.", [`${has}, but no joint gave a measurement:`, ul], { view });
+    }
     return message("Too few holds", "Not enough still moments to measure.", [
-      `${idText()} has ${plural(view.episodes, "episode")} and ${view.frames.toLocaleString("en-US")} frames, but no joint has 8 holds arriving from above and 8 from below. A hold is the leader kept still for half a second after a move of at least a degree.`,
+      `${has}, but no joint has 8 holds arriving from above and 8 from below. A hold is the leader kept still for half a second after a move of at least a degree.`,
       ul,
       "Record or pick a dataset with more pauses: placing, aligning and waiting all count. A few dozen episodes of pick and place is usually enough.",
     ], { view });
@@ -362,14 +416,29 @@ function show(view) {
   if (t.one_side_p95_mm) {
     tipBox.append(tipFigure("Arriving from one side", t.one_side_p95_mm, t.arms));
     tipBox.append(tipFigure("Arriving from any side", t.either_side_p95_mm, t.arms));
-    $("hc-do").textContent = `Leave at least ${t.either_side_p95_mm.text} mm of lead-in or tolerance around each target, or approach every target from the same side and ${t.one_side_p95_mm.text} mm will do.`;
-    $("hc-tip-limit").parentElement.hidden = false;
+    // The correction reaches the one-side figure only when it covers every tip joint with play (`full`).
+    const fix = view.correction && view.correction.rows.length ? (view.correction.full ? "full" : "part") : null;
+    $("hc-do").textContent = fix === "full"
+      ? `Leave at least ${t.either_side_p95_mm.text} mm of lead-in or tolerance around each target. Approach every target from the same side, or apply the play correction below, and ${t.one_side_p95_mm.text} mm will do.`
+      : `Leave at least ${t.either_side_p95_mm.text} mm of lead-in or tolerance around each target, or approach every target from the same side and ${t.one_side_p95_mm.text} mm will do.` +
+        (fix === "part" ? ` The play correction below covers only the joints it lists, so it does not bring this arm to ${t.one_side_p95_mm.text} mm.` : "");
+    // report_text's sentence; its closing clause (the engine's same_side) says what the correction does.
+    const lim = $("hc-tip-limit");
+    lim.dataset.full ||= lim.textContent;
+    lim.textContent = lim.dataset.full.replace("; so does the play correction below.", t.same_side);
+    lim.parentElement.hidden = false;
   } else {
     tipBox.append(el("p", "hc-fig-none", `At the gripper: ${t.not_computed}. The gripper figures need all five arm joints measured.`));
-    $("hc-do").textContent = "Use the per-joint figures below; record more holds on the joints that were not measured to get the gripper figures.";
+    // A joint can be unmeasured for want of holds (record more) or because its fit ran past servo play
+    // (the engine's reason says what to check); only the first is fixed by recording more.
+    const notFew = view.rows.some((r) => r.why && !r.few);
+    $("hc-do").textContent = notFew
+      ? "Use the per-joint figures below; 02 gives the reason each missing joint was not measured and what to check."
+      : "Use the per-joint figures below; record more holds on the joints that were not measured to get the gripper figures.";
     $("hc-tip-limit").parentElement.hidden = true;
   }
   setPlate(t.one_side_p95_mm ? t : null);
+  showCorrection(view.correction);
 
   const tbl = el("table", "hc-joints");
   const cap = el("caption", "hc-vh", "Lost motion, scatter and bias per joint, each placed among other SO arms");
@@ -388,7 +457,7 @@ function show(view) {
     const th = el("th");
     th.scope = "row";
     th.append(el("span", "hc-jn", JOINT_NAMES[r.joint]));
-    if (r.holds != null) th.append(el("span", "hc-jm", `${r.holds} holds${r.arms ? ` · vs ${r.arms} arms` : ""}`));
+    if (r.holds != null) th.append(el("span", "hc-jm", `${r.holds} holds${r.arms ? ` · vs ${plural(r.arms, "arm")}` : ""}`));
     tr.append(th);
     if (r.why) {
       const td = el("td", "hc-nm", `Not measured: ${r.why}`);
@@ -419,6 +488,16 @@ function show(view) {
   tbl.append(cap, head, body);
   $("hc-joints").replaceChildren(tbl);
   $("hc-scatter-note").hidden = !(anyFree || anyAll);
+  // Too few corpus arms of this type to place one among: say so, and drop the legend and the heading's claim.
+  const jh = $("hc-joints-h");
+  jh.dataset.full ||= jh.textContent;
+  jh.textContent = view.compared ? jh.dataset.full : "Each joint, measured on its own.";
+  cap.textContent = view.compared ? "Lost motion, scatter and bias per joint, each placed among other SO arms" : "Lost motion, scatter and bias per joint";
+  $("hc-key").hidden = !view.compared;
+  const cn = $("hc-compare-note");
+  cn.textContent = view.compared ? "" :
+    `Not placed among other arms: the corpus behind this check has ${plural(view.family_arms, view.robot_type + " arm")}, and a comparison needs at least ${view.compare_min}.`;
+  cn.hidden = view.compared;
 
   const dl = downloads(view, false);
   document.querySelector("#hc-result .hc-downloads").replaceWith(dl);

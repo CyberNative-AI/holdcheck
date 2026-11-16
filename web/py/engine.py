@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import time
 
 import numpy as np
@@ -92,13 +93,18 @@ def view(card: dict) -> dict:
     fam = hc.family(card.get("robot_type"))
     out["family"] = fam
     so = fam in ("so100", "so101")
-    table = SUMMARY.get("joints", {}) if so else SUMMARY.get("by_family", {}).get(fam, {})
+    table = hc.compare_table(SUMMARY, fam)
+    # No table: the corpus has too few arms of this family to place one among (fewer than COMPARE_MIN_ARMS).
+    out["compared"] = bool(table)
+    out["family_arms"] = SUMMARY.get("arms_by_family", {}).get(fam, 0)
+    out["compare_min"] = hc.COMPARE_MIN_ARMS
     rows = []
     for k in hc.SO_JOINTS[:-1]:
         j = card["joints"].get(k, {})
         r = {"joint": k}
         if "lost_motion_deg" not in j:
-            r["why"] = j.get("lattice", {}).get("why") or f"too few holds ({j.get('holds_pos', 0)} up, {j.get('holds_neg', 0)} down)"
+            r["why"] = j.get("why") or j.get("lattice", {}).get("why") or f"too few holds ({j.get('holds_pos', 0)} up, {j.get('holds_neg', 0)} down)"
+            r["few"] = not (j.get("why") or j.get("lattice", {}).get("why"))
             rows.append(r)
             continue
         lo, hi = (x * hc.STEP_DEG for x in j["lost_motion_ci90_steps"])
@@ -125,12 +131,40 @@ def view(card: dict) -> dict:
         out["tip"] = {"not_computed": t.get("not_computed", "not computed")}
     else:
         ts = SUMMARY.get("tip", {}) if so else {}
-        tip = {"arms": ts.get("arms"), "geometry": t.get("geometry")}
+        # same_side: report_text's closing clause of the same-side sentence (the page joins its line break)
+        tip = {"arms": ts.get("arms"), "geometry": t.get("geometry"),
+               "same_side": hc.same_side_clause(card).replace("\n", " ")}
         for key in ("one_side_p95_mm", "either_side_p95_mm"):
             tip[key] = {"text": f"{t[key]:.1f}", "v": t[key], "place": hc._place(t[key], ts.get(key, {})), "pct": _pct(ts.get(key))}
         out["tip"] = tip
+    out["correction"] = correction(card)
     out["state"] = "measured" if out["measured"] else "few"
     return out
+
+
+def correction(card: dict) -> dict | None:
+    """The card's play correction for the page: correction_text()'s own sentences and its rows' formats.
+
+    The sentences up to the one saying it is untried go in `lead`; that one and the rest go in
+    `caution`, which the page sets apart. `withheld` holds correction_text()'s closing lines, one per
+    joint whose play is too large to correct; they can come with no rows at all. None when the card has
+    neither rows nor withheld joints (the section hides). `full` is False when a tip joint with play
+    is left uncorrected; the page then does not offer the one-side figure with the correction."""
+    c = card.get("correction") or {}
+    lines = hc.correction_text(card)
+    n = len(hc.correction_withheld(card))
+    withheld = [x.strip() for x in lines[len(lines) - n:]] if n else []
+    if not c:
+        return {"lead": [], "caution": [], "rows": [], "withheld": withheld} if withheld else None
+    lines = lines[:len(lines) - n]
+    head = next(i for i, x in enumerate(lines) if x.strip().startswith("joint"))
+    said = re.split(r"(?<=\.) (?=[A-Z])", " ".join(x.strip() for x in lines[:head] if x.strip()))
+    cut = next((i for i, x in enumerate(said) if "not tried" in x), len(said))
+    rows = [{"joint": k, "add": f"{v['half_play_units']:.2f}", "units": v["units"], "deg": f"{v['half_play_deg']:.2f}"}
+            for k, v in c.items()]
+    # full: every tip joint with play is corrected, so the correction reaches the one-side figure
+    return {"lead": said[:cut], "caution": said[cut:], "rows": rows, "withheld": withheld,
+            "full": not hc.correction_left(card)}
 
 
 def run(repo, sub, info_bytes, files, blobs) -> str:
