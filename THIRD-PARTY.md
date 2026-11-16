@@ -1,6 +1,6 @@
 # Third-party files
 
-Files in `web/` that we did not write. They are served from the page's own host, so no script or font is fetched from a CDN. Licence texts are in `web/pyodide/licenses/` unless stated; `web/pyodide/licenses/SOURCES.md` gives each text's upstream source and hash. The wheels are unmodified.
+Files in `web/` that we did not write. They come from Hugging Face with the page (the larger files through Hugging Face's own file CDN), so no script or font is fetched from a third party. Licence texts are in `web/pyodide/licenses/` unless stated; `web/pyodide/licenses/SOURCES.md` gives each text's upstream source and hash. The wheels are unmodified.
 
 | files | project and version | licence | licence text |
 |---|---|---|---|

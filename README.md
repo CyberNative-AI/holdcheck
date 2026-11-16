@@ -6,7 +6,7 @@ holdcheck reads a LeRobot teleoperation recording you already published on Huggi
 
 **Try it in the browser:** https://huggingface.co/spaces/CyberNative-AI/holdcheck
 
-The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, including the open-source Python runtime it uses, and its fonts are served from the page's own host, not from a CDN.
+The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, the open-source Python runtime it uses and its fonts all come from Hugging Face, which hosts the page; none come from a third-party CDN.
 
 ## What 371 arms show
 

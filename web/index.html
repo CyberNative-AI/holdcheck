@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; font-src 'self' https://*.hf.co; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Arm play check for SO-100 and SO-101 · CyberNative</title>
 <meta name="description" content="Paste the Hugging Face id of a LeRobot dataset you recorded. Your browser measures each joint's play and settle scatter, and how far the gripper can miss, against 371 other SO arms.">
@@ -116,7 +116,7 @@
       <p>The comparison is 371 SO-100 and SO-101 arms measured the same way from public LeRobot recordings, one value per arm; 280 of them have all five joints measured for the gripper figures.</p>
       <div class="limit"><span class="label">Limit</span>The servo's encoder sits on its output shaft, so play between the shaft and the link (horn screws, printed parts, link bending) does not appear. Every figure here is a lower bound on the play at the tool.</div>
       <div class="limit"><span class="label">Limit</span>A hold where the arm presses on the table or an object reads as error; medians limit this, they do not remove it. Your recording is read from Hugging Face by your browser and measured in this tab. Private and gated datasets cannot be read here.</div>
-      <div class="hc-privacy" id="hc-privacy" tabindex="-1"><span class="label">What we receive</span><p>The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, including the open-source Python runtime it uses, and its fonts are served from the page's own host, not from a CDN.</p></div>
+      <div class="hc-privacy" id="hc-privacy" tabindex="-1"><span class="label">What we receive</span><p>The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, the open-source Python runtime it uses and its fonts all come from Hugging Face, which hosts the page; none come from a third-party CDN.</p></div>
       <p class="hc-source"><a href="https://github.com/CyberNative-AI/holdcheck" target="_blank" rel="noopener">Source, method and limits</a></p>
     </div>
   </section>
