@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; font-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Arm play check for SO-100 and SO-101 · CyberNative</title>
+<meta name="description" content="Paste the Hugging Face id of a LeRobot dataset you recorded. Your browser measures each joint's play and settle scatter, and how far the gripper can miss, against 371 other SO arms.">
+<link rel="stylesheet" href="holdcheck.css">
+<link rel="icon" href="mark-favicon.svg" type="image/svg+xml">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<a class="hc-skip" href="#hc-main">Skip to the check</a>
+<header class="field">
+  <div class="wrap">
+    <a class="brand" href="https://cybernative.ai/" target="_blank" rel="noopener">
+      <svg viewBox="150 130 960 960" fill="currentColor" aria-hidden="true"><path d="M421 169H813Q822 169 828 176L908 261Q918 270 908 279L865 313Q861 317 852 317H491Q472 317 457 332L371 417Q356 432 356 450V756Q356 779 372 796L427 852Q444 870 465 870H711Q724 870 733 880L824 973Q833 982 824 991L784 1030Q778 1036 766 1036H424Q396 1036 377 1017L220 861Q199 840 199 813V421Q199 391 219 371L391 185Q404 169 421 169Z"/><path d="M401 402H510Q532 402 548 418L949 835Q959 846 959 831V554Q959 537 971 524L1062 425Q1073 413 1073 429V980L1017 1055Q1005 1071 994 1059L392 419Q379 402 401 402Z"/></svg>
+      <span>CyberNative</span>
+    </a>
+    <p class="label"><b>Tool</b> · SO-100 / SO-101</p>
+  </div>
+  <div class="wrap opening hc-opening" id="hc-main">
+    <div class="hc-ask">
+      <h1>How far does your arm <em>miss by</em>?</h1>
+      <p class="lede">Paste the id of a LeRobot dataset you recorded with an SO-100 or SO-101. Your browser reads its joint recordings from Hugging Face and measures each joint's play and settle scatter, then what they mean at the gripper, against 371 other arms. <a href="#hc-privacy">We receive nothing you paste.</a></p>
+      <form class="hc-form" id="hc-form" novalidate>
+        <div class="hc-field">
+          <label for="hc-id">Dataset id on Hugging Face</label>
+          <input id="hc-id" name="id" type="text" value="lerobot/svla_so101_pickplace" autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="url" aria-describedby="hc-id-hint hc-id-error" required>
+          <p class="hc-hint" id="hc-id-hint"><code>user/name</code>, or paste the dataset's address.</p>
+          <p class="hc-error" id="hc-id-error" hidden></p>
+        </div>
+        <div class="hc-field">
+          <label for="hc-sub">Folder inside it <span>optional</span></label>
+          <input id="hc-sub" name="sub" type="text" value="" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="hc-sub-hint">
+          <p class="hc-hint" id="hc-sub-hint">Only when your recording sits in a larger repository: the folder that holds <code>meta/</code> and <code>data/</code>.</p>
+        </div>
+        <div class="hc-actions">
+          <button type="submit" id="hc-go">Check my arm</button>
+          <button type="button" id="hc-stop" class="hc-quiet" hidden>Stop</button>
+        </div>
+      </form>
+    </div>
+    <figure class="hc-plate" id="hc-plate" data-one="3.6" data-either="9.2" data-one-v="3.63" data-either-v="9.23">
+      <div class="hc-plate-draw" id="hc-plate-draw" role="img" aria-label="A typical SO arm, seen from above at the gripper: 95 percent of arrivals land within 3.6 millimetres of the target when the arm approaches from one side, and within 9.2 millimetres when it approaches from any side."></div>
+      <figcaption id="hc-plate-cap"><span class="label">A typical SO arm, from above</span>95% of arrivals at a target land inside each circle. Inner: approaching from one side, 3.6 mm. Outer: from any side, 9.2 mm. Grid 5 mm.</figcaption>
+    </figure>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hc-status" id="hc-status" hidden>
+    <ol class="hc-steps" id="hc-steps">
+      <li data-step="info"><span class="hc-tick" aria-hidden="true"></span><span>Read the dataset's description</span></li>
+      <li data-step="engine"><span class="hc-tick" aria-hidden="true"></span><span>Start the measuring engine in this tab <span class="hc-sub">26 MB, once per visit</span></span></li>
+      <li data-step="data"><span class="hc-tick" aria-hidden="true"></span><span>Download the joint recordings <span class="hc-sub" id="hc-data-detail"></span></span>
+        <progress id="hc-data-bar" max="1" value="0" aria-label="Download progress"></progress></li>
+      <li data-step="measure"><span class="hc-tick" aria-hidden="true"></span><span>Measure every hold <span class="hc-sub">seconds; a few minutes for very long recordings</span></span></li>
+    </ol>
+    <p class="hc-live" id="hc-live" role="status" aria-live="polite"></p>
+  </div>
+
+  <div class="hc-message" id="hc-message" role="alert" hidden>
+    <p class="label" id="hc-message-label">Not measured</p>
+    <h2 id="hc-message-title"></h2>
+    <div id="hc-message-body"></div>
+  </div>
+
+  <div id="hc-result" hidden>
+    <section class="hc-sec" aria-labelledby="hc-tip-h">
+      <p class="label">01 · At the gripper</p>
+      <div>
+        <h2 id="hc-tip-h">How far your gripper can land from where it was sent.</h2>
+        <p class="hc-for" id="hc-for"></p>
+        <div class="hc-answer" id="hc-tip"></div>
+        <p class="hc-do" id="hc-do"></p>
+        <div class="limit"><span class="label">Limit</span><span id="hc-tip-limit">A placement whose lead-in or tolerance is smaller than these will miss about 1 time in 20 or more from this arm's servos alone, before camera, calibration and printed-part play are added. Approaching every target from the same side removes the lost-motion part.</span></div>
+      </div>
+    </section>
+
+    <section class="hc-sec" aria-labelledby="hc-joints-h">
+      <p class="label">02 · Per joint</p>
+      <div>
+        <h2 id="hc-joints-h">Where each joint sits among other SO arms.</h2>
+        <p><b>Lost motion</b>: how far apart the follower settles when it arrives at the same command from above and from below. <b>Scatter</b>: how much it varies arriving from one side. Both at the servo's output shaft. 1 encoder step = 0.088 deg.</p>
+        <div class="hc-table" id="hc-joints"></div>
+        <p class="hc-key"><span><i class="hc-key-you" aria-hidden="true"></i>this arm</span> <span><i class="hc-key-mid" aria-hidden="true"></i>median of other arms</span> <span><i class="hc-key-band" aria-hidden="true"></i>their middle half</span> <span><i class="hc-key-wide" aria-hidden="true"></i>8 in 10 of them</span> <span>Left is tighter.</span></p>
+        <p class="hc-note" id="hc-scatter-note">Scatter is from holds of 1 s or more with an empty gripper where the recording has enough of them.</p>
+      </div>
+    </section>
+
+    <section class="hc-sec" aria-labelledby="hc-card-h">
+      <p class="label">03 · The card</p>
+      <div>
+        <h2 id="hc-card-h">Keep the card.</h2>
+        <p>The card holds every figure above and the ones behind them: the 90% intervals in encoder steps, hold counts by direction, settle creep, and the measuring settings. Measure again after you tighten a horn or change a servo and compare the two.</p>
+        <div class="hc-downloads">
+          <a class="hc-dl" id="hc-dl-json" href="#" download="holdcheck-card.json">Download card (JSON)</a>
+          <a class="hc-dl hc-dl-2" id="hc-dl-text" href="#" download="holdcheck-card.txt">Download as text</a>
+        </div>
+        <p class="hc-community">Got a card? <a href="https://huggingface.co/spaces/CyberNative-AI/holdcheck/discussions" target="_blank" rel="noopener">Post it in the Community tab</a>, especially if it disagrees with what you see on your bench.</p>
+        <dl class="hc-facts" id="hc-facts"></dl>
+      </div>
+    </section>
+  </div>
+
+  <section class="hc-sec" aria-labelledby="hc-method-h">
+    <p class="label" id="hc-method-n">Method and limits</p>
+    <div>
+      <h2 id="hc-method-h">What it reads, and what it cannot see.</h2>
+      <p>A LeRobot teleoperation recording stores the leader arm (the command, <code>action</code>) and the follower arm (<code>observation.state</code>) at every frame. When you hold the leader still for half a second after moving a joint at least a degree, the follower should settle on the command. The check takes where it settled at the end of every such hold and splits the holds by the direction the joint arrived from.</p>
+      <p>Lost motion is the width of a play band fitted to those settled errors, replaying the command from where the approach began; the 90% interval comes from resampling the holds. Scatter is the robust spread of the settled error from one side. A joint needs at least 8 holds from above and 8 from below. The step size is read from the recording itself, so degrees and the -100..100 range both work.</p>
+      <p>At the gripper, each joint's scatter and half its lost motion go through the SO-101 arm's geometry at 64 table poses 13 to 25 cm in front of the base, tool pointing down. The figure is the sideways distance that holds 95% of arrivals. SO-100 links differ slightly; the same geometry is used.</p>
+      <p>The comparison is 371 SO-100 and SO-101 arms measured the same way from public LeRobot recordings, one value per arm; 280 of them have all five joints measured for the gripper figures.</p>
+      <div class="limit"><span class="label">Limit</span>The servo's encoder sits on its output shaft, so play between the shaft and the link (horn screws, printed parts, link bending) does not appear. Every figure here is a lower bound on the play at the tool.</div>
+      <div class="limit"><span class="label">Limit</span>A hold where the arm presses on the table or an object reads as error; medians limit this, they do not remove it. Your recording is read from Hugging Face by your browser and measured in this tab. Private and gated datasets cannot be read here.</div>
+      <div class="hc-privacy" id="hc-privacy" tabindex="-1"><span class="label">What we receive</span><p>The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, including the open-source Python runtime it uses, and its fonts are served from the page's own host, not from a CDN.</p></div>
+      <p class="hc-source"><a href="https://github.com/CyberNative-AI/holdcheck" target="_blank" rel="noopener">Source, method and limits</a></p>
+    </div>
+  </section>
+</main>
+
+<footer class="close">
+  <div class="wrap">
+    <p class="label">Prepared by CyberNative AI LLC, an AI-run company, using AI agents</p>
+    <p class="label">Arm play check · method 0.3.1</p>
+  </div>
+</footer>
+</body>
+</html>

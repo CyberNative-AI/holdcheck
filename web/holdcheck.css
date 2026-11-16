@@ -1,0 +1,394 @@
+/* Object Atlas tokens and document base, from the company kit. Page rules follow at the end. */
+@font-face { font-family: "CN Display"; font-weight: 500 700; font-display: swap;
+  src: url("fonts/Syne-Display-Latin1-500-700.woff2") format("woff2"); }
+@font-face { font-family: "CN Text"; font-weight: 400 600; font-display: swap;
+  src: url("fonts/DMSans-Text-Latin1-400-600.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-weight: 400; font-display: swap;
+  src: url("fonts/DMMono-Regular-Latin1.woff2") format("woff2"); }
+@font-face { font-family: "DM Mono"; font-weight: 500; font-display: swap;
+  src: url("fonts/DMMono-Medium-Latin1.woff2") format("woff2"); }
+
+/* CyberNative brand kit — web tokens. Object Atlas.
+ *
+ * The field is graphite: header, footer and the home page, where the work is shown as authored
+ * silver objects. Reading pages stay on a light silver sheet with graphite ink, because long reading
+ * and forms read better light. Pale blue is the one highlight on the field; on the sheet its deep cut
+ * marks links, focus and the action. The --wp-* names are kept from v2 so every existing page and the
+ * account surface re-render from these values without markup changes; the names say what a colour
+ * does, not what it is (--wp-cobalt is the field). The --oa-* names are the Object Atlas source
+ * values: the shared header and footer read only these, so a page palette cannot recolour them.
+ * Contrast (WCAG, measured): ink on sheet 15.92, muted on sheet 6.29 (panel 6.72), blue-deep on sheet
+ * 6.92, rust on sheet 6.09; paper on graphite 14.96, muted on graphite 8.81, blue on graphite 10.77.
+ */
+:root {
+  color-scheme: light;
+
+  /* Object Atlas source values */
+  --oa-ground: #151518;       /* graphite: the field */
+  --oa-ground-2: #1e1f23;     /* field shade: hover, raised plates */
+  --oa-paper: #e8e9e7;        /* paper: text on the field */
+  --oa-muted: #b2b4bd;        /* secondary text on the field     8.81:1 */
+  --oa-blue: #b2c8f0;         /* the highlight on the field      10.77:1 */
+  --oa-line: #3c3d45;         /* dividers on the field; never the only sign of meaning */
+  --oa-control: #7c7f8a;      /* control outlines on the field   4.56:1 */
+  --oa-sheet: #eff0ec;        /* the reading sheet */
+  --oa-blue-deep: #2d4f93;    /* links, focus and marks on the sheet  6.92:1 */
+  --oa-font-display: "CN Display", "CN Display Fallback", Arial, sans-serif;
+  --oa-font-body: "CN Text", "CN Text Fallback", Arial, sans-serif;
+
+  /* Surfaces */
+  --wp-paper: var(--oa-sheet);  /* the reading surface */
+  --wp-panel: #f7f7f5;        /* figures, tables, inputs */
+  --wp-ink: #151518;          /* text, rules, frames             15.92:1 on sheet */
+  --wp-muted: #55575f;        /* metadata, captions              6.29:1 on sheet, 6.72 on panel */
+  --wp-hair: #cfd1d6;         /* ledger lines only; never the only divider of meaning */
+
+  /* The field */
+  --wp-cobalt: var(--oa-ground);      /* the field: graphite      14.96:1 with paper */
+  --wp-cobalt-deep: var(--oa-ground-2);
+  --wp-pale: var(--oa-muted); /* metadata on the field           8.81:1 */
+
+  /* Meaning. Each colour has one job. */
+  --wp-bio: #151518;          /* the action on the sheet: a graphite plate, paper type 14.96:1 */
+  --wp-on-bio: var(--oa-paper); /* text on the action and on the field */
+  --wp-cited: #d9e3f5;        /* highlight behind a value that has a source (ink 14.11:1) */
+  --wp-flag: #e2e3df;         /* highlight behind a value that was left blank (ink 14.13:1) */
+  --wp-rust: #9a3b16;         /* flag text and the "Limit" label   6.09:1 on sheet */
+  --wp-link: var(--wp-ink);   /* inline links: ink, told apart by the blue-deep underline */
+  --wp-deep: var(--wp-cobalt);/* a field section; paper text 14.96:1 */
+  --wp-deep-label: var(--wp-pale);
+  --wp-focus: var(--oa-blue-deep); /* focus ring on the sheet, 6.92:1. Not a fill, not a label */
+  --wp-focus-field: var(--oa-blue); /* focus ring and action on the field, 10.77:1 */
+
+  /* Type: Syne for display, DM Sans for text, DM Mono for labels and values. */
+  --wp-font-display: "CN Display", "CN Display Fallback", Arial, sans-serif;
+  --wp-font-body: "CN Text", "CN Text Fallback", Arial, sans-serif;
+  --wp-font-mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  --wp-text-hero: clamp(2.5rem, 5.6vw, 4.75rem);  /* one per page, lh .97, weight 500-600 */
+  --wp-text-title: clamp(1.875rem, 3.4vw, 3rem);  /* section title, lh 1.02 */
+  --wp-text-h3: 1.25rem;                          /* text cut 600, lh 1.3 */
+  --wp-text-lede: clamp(1.125rem, 1.6vw, 1.3125rem); /* lh 1.5 */
+  --wp-text-body: 1.0625rem;                      /* lh 1.6, never smaller for reading text */
+  --wp-text-ledger: 0.9375rem;                    /* tabular source values */
+  --wp-text-price: 2rem;                          /* service record prices */
+  --wp-text-meta: 0.875rem;                       /* short metadata only, < 40 chars */
+  --wp-text-cite: 0.8125rem;                      /* mono, cite chips and labels only */
+
+  /* Space: 4px base */
+  --wp-1: 0.25rem; --wp-2: 0.5rem; --wp-3: 0.75rem; --wp-4: 1rem; --wp-6: 1.5rem;
+  --wp-8: 2rem; --wp-12: 3rem; --wp-16: 4rem; --wp-24: 6rem; --wp-32: 8rem;
+
+  /* Shape */
+  --wp-rule: 1px;             /* ledger and table lines */
+  --wp-rule-strong: 2px;      /* section rules, figure frames */
+  --wp-radius: 4px;           /* inputs; figures and tables are square */
+  --wp-pill: 999px;           /* buttons: a rounded plate, as on the field */
+  --wp-page: 80rem;           /* 1280px */
+  --wp-measure: 66ch;
+  --wp-gutter: clamp(1.25rem, 3.4vw, 3rem);
+  --wp-tap: 48px;             /* minimum interactive height */
+}
+
+[data-edition="night"] {
+  color-scheme: dark;
+  --wp-paper: #0e1236;
+  --wp-panel: #161b4a;
+  --wp-ink: #f4efe3;
+  --wp-muted: #c9cdf2;
+  --wp-hair: #2c3370;
+  --wp-link: #c9cdf2;
+  --wp-cited: #1d2bc4;
+  --wp-flag: #5a2a14;
+  --wp-rust: #f0a27c;
+  --wp-focus: #ffd166;
+}
+
+/* v1.x aliases — delete once no stylesheet reads them. */
+:root, [data-edition="night"] {
+  --cn-color-canvas: var(--wp-paper);
+  --cn-color-panel: var(--wp-panel);
+  --cn-color-ink: var(--wp-ink);
+  --cn-color-muted: var(--wp-muted);
+  --cn-color-link: var(--wp-link);
+  --cn-color-leaf: var(--wp-pale);   /* v1 green chips and bars: ink sits on them */
+  --cn-color-leaf-strong: var(--wp-deep);
+  --cn-color-mint: var(--wp-cited);
+  --cn-color-amber: var(--wp-ink);   /* v1 decorative magenta shadows become ink, then go */
+  --cn-color-line: var(--wp-hair);
+  --cn-color-danger: var(--wp-rust);
+  --cn-offset: 0px;                  /* v1 offset shadows collapse to nothing */
+  --cn-offset-figure: 0px;
+}
+
+
+*, *::before, *::after { box-sizing: border-box; }
+html { background: var(--oa-ground); -webkit-text-size-adjust: 100%; }
+body { background: var(--wp-paper); color: var(--wp-ink); font: 400 var(--wp-text-body)/1.6 var(--wp-font-body);
+  margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+.wrap { margin: 0 auto; max-width: 68rem; padding: 0 var(--wp-gutter); }
+a { color: var(--wp-link); text-decoration-color: var(--oa-blue-deep); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--wp-focus); outline-offset: 3px; }
+
+/* The field: graphite, with the mark and the lowercase name. */
+.field { background: var(--oa-ground); color: var(--oa-paper); }
+.field > .wrap:first-child { align-items: center; display: flex; gap: var(--wp-6); justify-content: space-between; min-height: 76px; }
+.brand { align-items: center; color: var(--oa-paper); display: inline-flex; gap: 10px; text-decoration: none; }
+.brand svg { display: block; height: 32px; width: 32px; }
+.brand span { font: 600 1.5rem/1 var(--oa-font-display); letter-spacing: -0.054em; text-transform: lowercase; }
+.label { color: var(--wp-muted); font: 500 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.field .label { color: var(--oa-muted); text-align: right; }
+.field .opening .label { text-align: left; }
+.field .label b { color: var(--oa-blue); font-weight: 500; }
+
+/* The opening sits on the field: one large line, set tight, off-centre, with one pale-blue phrase
+   (the <em>) as on the home page. Reading starts on the sheet below it. */
+.opening { padding-bottom: var(--wp-12); padding-top: var(--wp-16); }
+.opening::before { border-top: var(--wp-rule) solid var(--oa-line); content: ""; display: block; margin-top: calc(-1 * var(--wp-16)); padding-top: var(--wp-16); }
+h1, h2 { font-family: var(--wp-font-display); font-weight: 500; letter-spacing: -0.035em; margin: 0; text-wrap: balance; }
+h1 { color: var(--oa-paper); font-size: var(--wp-text-hero); line-height: 0.97; max-width: 15ch; }
+h1 em { color: var(--oa-blue); font-style: normal; }
+.lede { color: var(--oa-paper); font-size: var(--wp-text-lede); line-height: 1.5; margin: var(--wp-8) 0 0; max-width: 44ch; }
+.meta { border-top: var(--wp-rule) solid var(--oa-line); display: flex; flex-wrap: wrap; gap: var(--wp-2) var(--wp-8);
+  list-style: none; margin: var(--wp-12) 0 0; max-width: none; padding: var(--wp-4) 0 0; }
+.meta li { color: var(--oa-muted); font: 400 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; margin: 0; text-transform: uppercase; }
+.meta b { color: var(--oa-paper); font-weight: 500; }
+main.wrap > section:first-child { padding-top: var(--wp-16); }
+
+/* Sections: a numbered margin label beside the reading column. */
+section { border-bottom: var(--wp-rule) solid var(--wp-ink); display: grid; gap: var(--wp-6) var(--wp-12);
+  grid-template-columns: minmax(8rem, 1fr) minmax(0, 3.2fr); padding: var(--wp-12) 0; }
+section > .label { padding-top: 0.6rem; }
+h2 { font-size: var(--wp-text-title); line-height: 1.02; margin-bottom: var(--wp-6); max-width: 20ch; }
+h3 { font: 600 var(--wp-text-h3)/1.3 var(--wp-font-body); margin: var(--wp-8) 0 var(--wp-2); }
+p, ul, ol { margin: 0 0 var(--wp-4); max-width: var(--wp-measure); }
+li + li { margin-top: var(--wp-2); }
+code, kbd { background: var(--wp-flag); font: 400 0.9em var(--wp-font-mono); padding: 0.1em 0.3em; }
+pre { background: var(--oa-ground); color: var(--oa-paper); font: 400 var(--wp-text-ledger)/1.55 var(--wp-font-mono);
+  margin: var(--wp-6) 0; overflow-x: auto; padding: var(--wp-6); }
+pre code { background: none; padding: 0; }
+/* The highlight is drawn outside the text box, so it never opens a gap before punctuation. */
+mark, .cited { background: var(--wp-cited); box-decoration-break: clone; -webkit-box-decoration-break: clone;
+  box-shadow: 0.18em 0 0 var(--wp-cited), -0.18em 0 0 var(--wp-cited); color: inherit; padding: 0.04em 0; }
+
+/* The answer: the one number or sentence the page exists for, on the field. */
+.answer { background: var(--oa-ground); color: var(--oa-paper); display: grid; gap: var(--wp-6) var(--wp-12);
+  grid-template-columns: auto minmax(0, 1fr); margin: var(--wp-6) 0; padding: var(--wp-8); }
+/* Figures are DM Sans with tabular numerals: Syne's 0 reads as an O. */
+.answer .num { color: var(--oa-blue); font: 500 clamp(3rem, 8vw, 5.5rem)/0.9 var(--wp-font-body); font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.04em; white-space: nowrap; }
+.answer .num small { font-size: 0.42em; letter-spacing: 0; margin-left: 0.08em; }
+.answer p { align-self: end; font-size: var(--wp-text-lede); line-height: 1.45; margin: 0; }
+.answer .label { color: var(--oa-muted); display: block; margin-bottom: var(--wp-2); }
+
+/* Ledger tables: square, ink rules, mono figures. */
+.table { margin: var(--wp-6) 0; overflow-x: auto; }
+table { border-collapse: collapse; border-top: var(--wp-rule-strong) solid var(--wp-ink); font-size: var(--wp-text-ledger); width: 100%; }
+th, td { border-bottom: var(--wp-rule) solid var(--wp-hair); padding: var(--wp-3) var(--wp-4) var(--wp-3) 0; text-align: left; vertical-align: baseline; }
+thead th { border-bottom-color: var(--wp-ink); color: var(--wp-muted); font: 500 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+td.num, th.num { font-family: var(--wp-font-mono); font-variant-numeric: tabular-nums; padding-right: 0; text-align: right; white-space: nowrap; }
+tbody tr:last-child td { border-bottom-color: var(--wp-ink); }
+
+/* Figures: a framed panel. Series are graphite, blue-deep, pale blue and grey, each with the ink
+   outline. Rust is never a series: it marks a limit or an over-limit value. */
+figure { background: var(--wp-panel); border: var(--wp-rule-strong) solid var(--wp-ink); margin: var(--wp-6) 0; padding: var(--wp-6); }
+figcaption { color: var(--wp-muted); font-size: var(--wp-text-meta); margin-top: var(--wp-4); }
+.bars { --s1: var(--wp-ink); --s2: var(--oa-blue-deep); --s3: var(--oa-blue); --s4: var(--oa-control);
+  align-items: center; display: grid; gap: var(--wp-3) var(--wp-4); grid-template-columns: max-content minmax(0, 1fr); margin: 0; padding: 0; }
+.bars .name { font-size: var(--wp-text-ledger); }
+.bars .track { align-items: center; background: linear-gradient(var(--wp-hair), var(--wp-hair)) 0 50% / 100% 1px no-repeat; display: flex; position: relative; }
+.bars .bar { background: var(--s1); border: var(--wp-rule-strong) solid var(--wp-ink); flex: 0 0 auto; height: 1.5rem; width: var(--v); }
+.bars .s2 .bar { background: var(--s2); } .bars .s3 .bar { background: var(--s3); } .bars .s4 .bar { background: var(--s4); }
+.bars .val { background: var(--wp-panel); position: relative; z-index: 1; font: 500 var(--wp-text-ledger)/1 var(--wp-font-mono); font-variant-numeric: tabular-nums; padding: 0 0.5em; }
+.bars .over .val { color: var(--wp-rust); }
+.bars .at { border-left: var(--wp-rule-strong) dashed var(--wp-rust); inset: -0.45rem auto -0.45rem var(--at); position: absolute; }
+.key { color: var(--wp-rust); font: 500 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; margin: var(--wp-4) 0 0; text-transform: uppercase; }
+@media (max-width: 720px) { .bars { grid-template-columns: minmax(0, 1fr); row-gap: var(--wp-1); } .bars .track { margin-bottom: var(--wp-3); } }
+
+/* Limits and open questions sit beside the claim they limit. */
+.limit { border-left: var(--wp-rule-strong) solid var(--wp-rust); margin: var(--wp-6) 0; padding: var(--wp-1) 0 var(--wp-1) var(--wp-4); }
+.limit .label { color: var(--wp-rust); display: block; margin-bottom: var(--wp-2); }
+
+.close { background: var(--oa-ground); color: var(--oa-muted); }
+.close .wrap { display: flex; flex-wrap: wrap; gap: var(--wp-4); justify-content: space-between; padding-bottom: var(--wp-8); padding-top: var(--wp-8); }
+.close .label { color: var(--oa-muted); }
+
+@media (max-width: 720px) {
+  section, .answer { grid-template-columns: minmax(0, 1fr); }
+  .opening { padding-top: var(--wp-12); }
+}
+@page { margin: 14mm 0; size: A4; }
+@media print {
+  html { background: none; }
+  section, figure, .answer, table { break-inside: avoid; }
+  h2, h3 { break-after: avoid; }
+}
+
+/* ---- Arm play check -------------------------------------------------------------------------
+   The page's object is a target seen from above: circles that hold 95% of the gripper's arrivals.
+   The form sits on the field beside it; the card reads on the sheet below. */
+[hidden] { display: none !important; }
+.hc-skip { background: var(--oa-blue); color: var(--oa-ground); left: var(--wp-4); padding: var(--wp-3) var(--wp-4); position: absolute; top: -10rem; z-index: 2; }
+.hc-skip:focus { top: var(--wp-4); }
+.field .label { margin: 0; }
+.field .brand { min-height: var(--wp-tap); }
+
+.hc-opening { align-items: start; display: grid; gap: var(--wp-12) var(--wp-16); grid-template-columns: minmax(0, 1.35fr) minmax(16rem, 1fr); }
+.hc-opening::before { grid-column: 1 / -1; }
+.hc-opening h1 { max-width: 12ch; }
+.hc-plate { align-self: end; }
+.hc-opening .lede { max-width: 40ch; }
+
+.hc-form { margin: var(--wp-8) 0 0; max-width: 34rem; }
+.hc-field { margin: 0 0 var(--wp-6); }
+.hc-field label { color: var(--oa-paper); display: block; font: 500 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; margin-bottom: var(--wp-2); text-transform: uppercase; }
+.hc-field label span { color: var(--oa-muted); margin-left: 0.5em; }
+.hc-field input { background: var(--oa-ground-2); border: var(--wp-rule) solid var(--oa-control); border-radius: var(--wp-radius); color: var(--oa-paper);
+  font: 400 1.0625rem/1.3 var(--wp-font-mono); min-height: var(--wp-tap); padding: var(--wp-3) var(--wp-4); width: 100%; }
+.hc-field input:hover { border-color: var(--oa-muted); }
+.hc-field input:focus-visible { border-color: var(--oa-blue); outline: 2px solid var(--wp-focus-field); outline-offset: 2px; }
+.hc-field input[aria-invalid="true"] { border-color: #f0a27c; }
+.hc-hint { color: var(--oa-muted); font-size: var(--wp-text-meta); margin: var(--wp-2) 0 0; }
+.hc-hint code, .hc-ask .lede code { background: var(--oa-ground-2); color: var(--oa-paper); }
+.hc-error { color: #f0a27c; font-size: var(--wp-text-meta); font-weight: 600; margin: var(--wp-2) 0 0; }
+.hc-actions { align-items: center; display: flex; flex-wrap: wrap; gap: var(--wp-4); }
+#hc-go, #hc-stop { border-radius: var(--wp-pill); cursor: pointer; font: 600 1.0625rem/1 var(--wp-font-body); min-height: var(--wp-tap); padding: 0 var(--wp-8); }
+#hc-go { background: var(--oa-blue); border: 2px solid var(--oa-blue); color: var(--oa-ground); }
+#hc-go:hover { background: var(--oa-paper); border-color: var(--oa-paper); }
+#hc-go:disabled { cursor: progress; opacity: 0.75; }
+#hc-stop { background: transparent; border: 2px solid var(--oa-control); color: var(--oa-paper); }
+#hc-stop:hover { border-color: var(--oa-paper); }
+#hc-go:focus-visible, #hc-stop:focus-visible, .field a:focus-visible { outline: 2px solid var(--wp-focus-field); outline-offset: 3px; }
+
+/* The plate: a framed panel on the field. Rings are drawn with non-scaling strokes. */
+.hc-plate { background: var(--oa-ground-2); border: var(--wp-rule) solid var(--oa-line); margin: 0; padding: var(--wp-6); }
+.hc-plate-draw svg { aspect-ratio: 1; display: block; height: auto; margin: 0 auto; max-width: 22rem; width: 100%; }
+.hc-plate .hc-grid { stroke: var(--oa-line); stroke-width: 1; }
+.hc-plate .hc-axis { stroke: var(--oa-control); stroke-width: 1; }
+.hc-plate .hc-ring { fill: none; stroke: var(--oa-blue); stroke-width: 2; }
+.hc-plate .hc-ring-typ { fill: none; stroke: var(--oa-muted); stroke-width: 1.5; }
+.hc-plate .hc-ring-you { fill: none; stroke: var(--oa-blue); stroke-width: 3; }
+.hc-plate .hc-ring-out { stroke-dasharray: 6 5; }
+.hc-plate .hc-target { fill: var(--oa-paper); }
+.hc-plate figcaption { color: var(--oa-muted); font-size: var(--wp-text-meta); line-height: 1.5; margin-top: var(--wp-4); }
+.hc-plate figcaption .label { color: var(--oa-paper); display: block; margin-bottom: var(--wp-1); }
+
+/* Progress */
+.hc-status { border-bottom: var(--wp-rule) solid var(--wp-ink); padding: var(--wp-12) 0; }
+.hc-steps { counter-reset: s; list-style: none; margin: 0; max-width: 40rem; padding: 0; }
+.hc-steps li { align-items: baseline; color: var(--wp-muted); display: grid; gap: var(--wp-1) var(--wp-4); grid-template-columns: 1.25rem minmax(0, 1fr); margin: 0; padding: var(--wp-2) 0; }
+.hc-steps li + li { margin: 0; }
+.hc-steps .hc-sub { color: var(--wp-muted); display: block; font: 400 var(--wp-text-cite)/1.5 var(--wp-font-mono); }
+.hc-steps progress { grid-column: 2; height: 0.5rem; width: 100%; -webkit-appearance: none; appearance: none; background: var(--wp-hair); border: 0; }
+.hc-steps progress::-webkit-progress-bar { background: var(--wp-hair); }
+.hc-steps progress::-webkit-progress-value { background: var(--wp-ink); }
+.hc-steps progress::-moz-progress-bar { background: var(--wp-ink); }
+.hc-steps li:not(.is-active):not(.is-done) progress { display: none; }
+.hc-tick { border: 2px solid var(--wp-hair); border-radius: 50%; display: inline-block; height: 0.875rem; transform: translateY(0.1rem); width: 0.875rem; }
+.hc-steps li.is-active { color: var(--wp-ink); font-weight: 600; }
+.hc-steps li.is-active .hc-tick { animation: hc-pulse 1.2s ease-in-out infinite; border-color: var(--oa-blue-deep); }
+.hc-steps li.is-done { color: var(--wp-ink); }
+.hc-steps li.is-done .hc-tick { background: var(--wp-ink); border-color: var(--wp-ink); }
+.hc-steps li.is-fail { color: var(--wp-rust); }
+.hc-steps li.is-fail .hc-tick { border-color: var(--wp-rust); border-radius: 0; }
+@keyframes hc-pulse { 50% { background: var(--oa-blue); } }
+@media (prefers-reduced-motion: reduce) { .hc-steps li.is-active .hc-tick { animation: none; background: var(--oa-blue); } }
+.hc-live { margin: var(--wp-4) 0 0; }
+.hc-live:empty { display: none; }
+
+/* Messages: not an SO arm, too few holds, not found. */
+.hc-message { border-bottom: var(--wp-rule) solid var(--wp-ink); border-left: 4px solid var(--wp-ink); margin: var(--wp-12) 0 0; padding: var(--wp-2) 0 var(--wp-12) var(--wp-6); }
+.hc-message h2 { font-size: clamp(1.625rem, 3vw, 2.5rem); margin: var(--wp-2) 0 var(--wp-6); max-width: 24ch; }
+.hc-message h2:focus { outline: none; }
+.hc-message p, .hc-message li, .hc-for { overflow-wrap: anywhere; }
+.hc-why { font-family: var(--wp-font-mono); font-size: var(--wp-text-ledger); }
+
+/* Sections of the card */
+.hc-sec h2:focus { outline: none; }
+.hc-for { color: var(--wp-muted); font: 400 var(--wp-text-meta)/1.5 var(--wp-font-mono); overflow-wrap: anywhere; }
+.hc-answer { background: var(--oa-ground); color: var(--oa-paper); display: grid; gap: var(--wp-8); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: var(--wp-6) 0; padding: var(--wp-8); }
+.hc-fig .label { color: var(--oa-muted); display: block; }
+.hc-fig-num { color: var(--oa-blue); font: 500 clamp(3rem, 7vw, 4.75rem)/0.95 var(--wp-font-body); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.04em; margin: var(--wp-3) 0 var(--wp-2); white-space: nowrap; }
+.hc-fig-num small { font-size: 0.4em; letter-spacing: 0; }
+.hc-fig-what { color: var(--oa-paper); font-size: var(--wp-text-meta); margin: 0 0 var(--wp-4); }
+.hc-fig-none { grid-column: 1 / -1; margin: 0; }
+.hc-do { font: 500 var(--wp-text-lede)/1.45 var(--wp-font-body); max-width: 46ch; }
+
+/* Placement strip: 8 in 10 of other arms (p10-p90), the middle half (p25-p75), the median, this arm. */
+.hc-strip { height: 1.5rem; margin: var(--wp-2) 0 var(--wp-1); position: relative; }
+.hc-strip::before { background: currentColor; content: ""; height: 1px; left: 0; opacity: 0.35; position: absolute; right: 0; top: 50%; }
+.hc-strip span { position: absolute; }
+.hc-strip-wide { background: var(--wp-hair); height: 0.5rem; left: var(--a); right: calc(100% - var(--b)); top: 0.5rem; }
+.hc-strip-band { background: var(--oa-blue); border: 1px solid var(--oa-blue-deep); height: 0.75rem; left: var(--a); right: calc(100% - var(--b)); top: 0.375rem; }
+.hc-strip-mid { background: var(--wp-ink); height: 1.125rem; left: var(--a); top: 0.1875rem; transform: translateX(-1px); width: 2px; }
+.hc-strip-you { background: var(--wp-ink); border: 2px solid var(--wp-paper); border-radius: 50%; height: 1.125rem; left: var(--a); top: 0.1875rem; transform: translateX(-50%); width: 1.125rem; }
+.hc-strip-you.is-off { border-radius: 0; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.hc-answer .hc-strip { color: var(--oa-muted); }
+.hc-answer .hc-strip-wide { background: var(--oa-line); }
+.hc-answer .hc-strip-band { background: var(--oa-control); border-color: var(--oa-muted); }
+.hc-answer .hc-strip-mid { background: var(--oa-paper); }
+.hc-answer .hc-strip-you { background: var(--oa-blue); border-color: var(--oa-ground); }
+.hc-place { color: var(--wp-muted); display: block; font: 400 var(--wp-text-cite)/1.4 var(--wp-font-mono); }
+.hc-answer .hc-place { color: var(--oa-muted); margin: 0; }
+
+/* Per-joint table */
+.hc-table { margin: var(--wp-6) 0 var(--wp-4); }
+table.hc-joints { min-width: 0; table-layout: fixed; }
+.hc-joints thead th:first-child { width: 24%; }
+.hc-joints thead th:last-child { width: 12%; }
+.hc-joints th, .hc-joints td { padding: var(--wp-4) var(--wp-4) var(--wp-4) 0; vertical-align: top; }
+.hc-joints td.num, .hc-joints th.num { text-align: left; white-space: normal; padding-right: var(--wp-6); }
+.hc-joints td.hc-bias { padding-right: 0; text-align: right; }
+.hc-joints thead th.num:last-child { text-align: right; padding-right: 0; }
+.hc-joints tbody th { font-weight: 400; }
+.hc-jn { display: block; font-weight: 600; }
+.hc-jm { color: var(--wp-muted); display: block; font: 400 var(--wp-text-cite)/1.5 var(--wp-font-mono); }
+.hc-v { display: block; font: 500 1.375rem/1.2 var(--wp-font-mono); font-variant-numeric: tabular-nums; }
+.hc-ci { color: var(--wp-muted); display: block; font: 400 var(--wp-text-cite)/1.5 var(--wp-font-mono); }
+.hc-nm { color: var(--wp-muted); font-family: var(--wp-font-mono); }
+.hc-vh { clip: rect(0 0 0 0); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
+.hc-key { align-items: center; color: var(--wp-muted); display: flex; flex-wrap: wrap; font: 400 var(--wp-text-cite)/1.5 var(--wp-font-mono); gap: var(--wp-2) var(--wp-3); }
+.hc-key > span { align-items: center; display: inline-flex; gap: var(--wp-2); white-space: nowrap; }
+.hc-key i { display: inline-block; flex: 0 0 auto; }
+.hc-key-wide { background: var(--wp-hair); height: 0.5rem; width: 1.5rem; }
+.hc-key-band { background: var(--oa-blue); border: 1px solid var(--oa-blue-deep); height: 0.75rem; width: 1.5rem; }
+.hc-key-mid { background: var(--wp-ink); height: 1rem; width: 2px; }
+.hc-key-you { background: var(--wp-ink); border-radius: 50%; height: 0.875rem; width: 0.875rem; }
+.hc-note { color: var(--wp-muted); font-size: var(--wp-text-meta); }
+
+/* Downloads and facts */
+.hc-downloads { display: flex; flex-wrap: wrap; gap: var(--wp-4); margin: var(--wp-6) 0; }
+.hc-dl { align-items: center; background: var(--wp-bio); border: 2px solid var(--wp-bio); border-radius: var(--wp-pill); color: var(--wp-on-bio); display: inline-flex;
+  font-weight: 600; min-height: var(--wp-tap); padding: 0 var(--wp-6); text-decoration: none; }
+.hc-dl:hover { background: var(--oa-ground-2); }
+.hc-dl-2 { background: transparent; color: var(--wp-ink); }
+.hc-dl-2:hover { background: var(--wp-panel); }
+.hc-facts { display: grid; font-size: var(--wp-text-ledger); gap: var(--wp-2) var(--wp-6); grid-template-columns: max-content minmax(0, 1fr); margin: var(--wp-6) 0 0; }
+.hc-facts dt { color: var(--wp-muted); font: 500 var(--wp-text-cite)/1.9 var(--wp-font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.hc-facts dd { font-family: var(--wp-font-mono); margin: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  .hc-opening { grid-template-columns: minmax(0, 1fr); }
+  .hc-plate { max-width: 30rem; }
+}
+@media (max-width: 720px) {
+  .hc-answer { grid-template-columns: minmax(0, 1fr); padding: var(--wp-6); }
+  .hc-opening { gap: var(--wp-8); }
+  table.hc-joints, .hc-joints tbody, .hc-joints tr, .hc-joints th, .hc-joints td { display: block; width: 100%; }
+  .hc-joints thead { display: none; }
+  .hc-joints tr { border-bottom: var(--wp-rule) solid var(--wp-ink); padding: var(--wp-4) 0; }
+  .hc-joints tbody tr:last-child { border-bottom-width: 2px; }
+  .hc-joints th, .hc-joints td, .hc-joints td.num, .hc-joints td.hc-bias { border: 0; padding: 0 0 var(--wp-4); text-align: left; }
+  .hc-joints td.hc-cell::before { color: var(--wp-muted); content: attr(data-label); display: block; font: 500 var(--wp-text-cite)/1.4 var(--wp-font-mono); letter-spacing: 0.04em; text-transform: uppercase; }
+  .hc-joints td.hc-bias { align-items: baseline; display: flex; gap: var(--wp-3); padding-bottom: 0; }
+  .hc-joints td.hc-bias .hc-v { font-size: 1rem; }
+}
+
+/* What we receive, the community line and the source link */
+.hc-ask .lede a { color: var(--oa-paper); text-decoration-color: var(--oa-blue); }
+.hc-community { margin: 0 0 var(--wp-6); max-width: var(--wp-measure); }
+.hc-privacy { border-left: var(--wp-rule-strong) solid var(--oa-blue-deep); margin: var(--wp-6) 0; padding: var(--wp-1) 0 var(--wp-1) var(--wp-4); }
+.hc-privacy .label { color: var(--oa-blue-deep); display: block; margin-bottom: var(--wp-2); }
+.hc-privacy p { margin: 0; }
+.hc-privacy:target, .hc-privacy:focus { background: var(--wp-panel); outline: none; }
+.hc-source a { align-items: center; display: inline-flex; font-weight: 600; min-height: var(--wp-tap); }
