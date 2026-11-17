@@ -359,5 +359,50 @@ class T(unittest.TestCase):
             self.assertIn("Not placed among other arms", t)
             self.assertIn(f"needs at least {hc.COMPARE_MIN_ARMS}", t)
 
+    # 0.5.2: LeRobot writes robot_type "so_follower" for SO-100 and SO-101 since its 2026 SO consolidation
+    def test_so_follower_is_an_so_arm(self):
+        import json, os
+        import playfix
+        self.assertEqual(hc.family("so_follower"), "so")
+        self.assertEqual(playfix._family("so_follower"), "so")
+        self.assertFalse(hc.family("bi_so_follower") in hc.SO_FAMILIES)
+        # only the canonical name: an unknown suffix stays out of the SO table and the correction
+        self.assertEqual(hc.family("SO_Follower"), "so")
+        for rt in ("so_followerx", "so_follower_custom", "so_followerpiper"):
+            self.assertFalse(hc.family(rt) in hc.SO_FAMILIES, rt)
+            self.assertEqual(playfix._family(rt), "other", rt)
+        summ = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "corpus_summary.json")))
+        cards = {}
+        for rt in ("so101_follower", "so_follower"):
+            c = self.run_case(20, 2.0, 0, "degrees")
+            c["robot_type"] = rt
+            c["tip"] = hc.tip_figures(c["joints"])
+            c["seat"] = hc.seat_figures(c)
+            c["correction"] = hc.play_correction(c)
+            cards[rt] = c
+        old, new = cards["so101_follower"], cards["so_follower"]
+        self.assertNotIn("not_computed", new["seat"])
+        self.assertEqual(new["seat"], old["seat"])
+        self.assertEqual(new["correction"], old["correction"])
+        self.assertTrue(new["correction"].get("joints") or new["correction"])
+        t_old = hc.report_text(old, summ).replace("so101_follower", "RT")
+        t_new = hc.report_text(new, summ).replace("so_follower", "RT")
+        self.assertNotIn("Not placed among other arms", t_new)
+        self.assertEqual(t_new, t_old)
+
+    def test_large_play_text_does_not_locate_the_cause(self):
+        c = self.run_case(20, 2.0, 0, "degrees")
+        c["robot_type"] = "so101_follower"
+        k = hc.TIP_JOINTS[2]
+        c["joints"][k]["lost_motion_steps"] = hc.CORR_MAX_STEPS + 10
+        c["joints"][k]["lost_motion_deg"] = (hc.CORR_MAX_STEPS + 10) * hc.STEP_DEG
+        t = " ".join(m for j, m in hc.correction_skip(c) if j == k)
+        self.assertIn("position_p_coefficient", t)
+        self.assertIn("cannot say where", t)
+        self.assertIn("not measured at all", t)
+        for claim in ("horn", "inside the servo", "try 32", "32", "shaking"):
+            self.assertNotIn(claim, t)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

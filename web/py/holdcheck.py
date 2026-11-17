@@ -36,7 +36,7 @@ import urllib.request
 
 import numpy as np
 
-VERSION = "0.5.1"
+VERSION = "0.5.2"
 STEP_DEG = 360.0 / 4096.0
 HF = "https://huggingface.co"
 SO_JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
@@ -200,12 +200,17 @@ B_GRID = np.arange(0.0, 60.25, 0.25)  # candidate lost motion, encoder steps
 # of B_WIDE (21 deg) is not servo play; the joint is reported as not measured.
 B_WIDE = np.arange(0.0, 240.25, 0.25)
 # The play correction is given only up to 60 steps (5.3 deg) of play, the range the 0.4 check covered.
-# Larger play is a loose horn, screw or gear (elbow p90 is 4.7 deg); aiming far past a target is not a fix.
+# Larger play is past the tested range, and a recording cannot locate its cause (a soft position gain, friction
+# or wear in the servo, load or contact, calibration); shaft-to-link play is not seen at all. Elbow p90 is 4.7 deg.
+# Aiming far past a target is not a fix.
 CORR_MAX_STEPS = 60.0
 # 0.4.2: the correction is given only where an encoder step is known to be 1/4096 turn (Feetech STS3215 on
 # SO-100/101, Dynamixel on Koch) and, for -100..100 recordings, the calibrated range is at most one turn.
 # Elsewhere the step, and so the size of the correction, is not known (Piper's range read 40 turns).
-CORR_FAMILIES = ("so100", "so101", "koch", "mixed")
+# "so": LeRobot names SO-100 and SO-101 followers alike "so_follower" since its 2026 consolidation of the SO
+# robots; both use the STS3215 servo and the same joint names, so the card treats the pair as one family.
+SO_FAMILIES = ("so100", "so101", "so")
+CORR_FAMILIES = ("so100", "so101", "so", "koch", "mixed")
 TURN_STEPS = 4096
 # A family is placed against other arms only when the corpus has at least this many of them.
 COMPARE_MIN_ARMS = 5
@@ -254,6 +259,8 @@ def family(robot_type) -> str:
     rt = str(robot_type or "").lower().replace("-", "")
     if "koch" in rt and "so10" in rt:
         return "mixed"
+    if rt == "so_follower":
+        return "so"
     if rt.startswith("so101"):
         return "so101"
     if rt.startswith("so100") or rt.startswith("so_100"):
@@ -438,7 +445,11 @@ def correction_skip(card: dict) -> list:
                            f"encoder steps, more than one servo turn ({TURN_STEPS}). Check that joint's calibration."))
         elif j["lost_motion_steps"] > CORR_MAX_STEPS:
             out.append((k, f"No correction for {k}: its {j['lost_motion_deg']:.1f} deg of play is more than software should "
-                           f"cancel (it is given up to {CORR_MAX_STEPS * STEP_DEG:.1f} deg). Check that joint's horn screws and servo."))
+                           f"cancel (it is given up to {CORR_MAX_STEPS * STEP_DEG:.1f} deg, the range the correction was tested on). "
+                           f"A recording cannot say where play this large comes from. It may be a dead-band from a soft "
+                           f"position gain (LeRobot's follower setting position_p_coefficient), friction or wear in the "
+                           f"servo, the arm pressing on the table or an object, or that joint's calibration. Play between "
+                           f"the servo shaft and the link is not measured at all."))
     return out
 
 
@@ -515,7 +526,7 @@ def tip_figures(joints: dict, tipmap: dict | None = None, per_pose: int = 200, s
 
 SEATMAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seatmap.json")
 SEAT_LEAD_IN_MM = (3, 5)
-SEAT_FAMILIES = ("so100", "so101")
+SEAT_FAMILIES = SO_FAMILIES
 SEAT_P0_TESTED = 0.33  # the own-rate escalation was tested in simulation up to a miss rate of 0.327
 
 
@@ -587,7 +598,7 @@ def compare_table(summary: dict | None, fam: str) -> dict:
     fewer than COMPARE_MIN_ARMS arms of the family (an arm is not compared with itself)."""
     if not summary:
         return {}
-    if fam in ("so100", "so101"):
+    if fam in SO_FAMILIES:
         return summary.get("joints", {})
     if summary.get("arms_by_family", {}).get(fam, 0) < COMPARE_MIN_ARMS:
         return {}
@@ -638,7 +649,7 @@ def report_text(card: dict, summary: dict | None = None) -> str:
     if "one_side_p95_mm" not in t:
         L.append(f"At the gripper: {t.get('not_computed', 'not computed')}")
         return "\n".join(L + correction_text(card))
-    ts = (summary or {}).get("tip", {}) if fam in ("so100", "so101") else {}
+    ts = (summary or {}).get("tip", {}) if fam in SO_FAMILIES else {}
     L += [
         "At the gripper (sideways error of the tool point, table poses 13-25 cm in front of the base):",
         f"  arriving from one side      95% within {t['one_side_p95_mm']:.1f} mm   {_place(t['one_side_p95_mm'], ts.get('one_side_p95_mm', {}))}",

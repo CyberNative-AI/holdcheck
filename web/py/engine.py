@@ -93,7 +93,7 @@ def view(card: dict) -> dict:
         return out
     fam = hc.family(card.get("robot_type"))
     out["family"] = fam
-    so = fam in ("so100", "so101")
+    so = fam in hc.SO_FAMILIES
     table = hc.compare_table(SUMMARY, fam)
     # No table: the corpus has too few arms of this family to place one among (fewer than COMPARE_MIN_ARMS).
     out["compared"] = bool(table)

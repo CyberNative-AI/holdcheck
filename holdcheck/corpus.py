@@ -143,7 +143,7 @@ def cmd_summary(a):
             if "lost_motion_deg" in j:
                 per_fam.setdefault(fam, {}).setdefault(contrib, {}).setdefault(k, []).append(j)
     so = {}
-    for fam in ("so100", "so101"):
+    for fam in hc.SO_FAMILIES:
         for contrib, d in per_fam.get(fam, {}).items():
             for k, js in d.items():
                 # the same person on SO-100 and SO-101 counts as two arms

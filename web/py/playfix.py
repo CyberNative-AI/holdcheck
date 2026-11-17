@@ -25,13 +25,15 @@ TIP = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll"
 MAX_HALF_STEPS = 30.0  # holdcheck gives a correction only up to 60 steps of play; a larger one is refused
 STEP_DEG = 360.0 / 4096.0  # one encoder step of an SO-100/101 (STS3215) or Koch (Dynamixel) servo
 TURN_STEPS = 4096
-FAMILIES = ("so100", "so101", "koch", "mixed")  # the arms holdcheck gives a correction for
+FAMILIES = ("so100", "so101", "so", "koch", "mixed")  # the arms holdcheck gives a correction for
 
 
 def _family(robot_type) -> str:
     rt = str(robot_type or "").lower().replace("-", "")
     if "koch" in rt and "so10" in rt:
         return "mixed"
+    if rt == "so_follower":
+        return "so"
     for f, pre in (("so101", ("so101",)), ("so100", ("so100", "so_100")), ("koch", ("koch",))):
         if rt.startswith(pre):
             return f

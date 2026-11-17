@@ -68,7 +68,7 @@ def card_params(card):
     """A card's five tip joints -> the cell's inputs: play half-width (half the lost motion) and settle
     scatter (free holds where measured), degrees, rounded to 4 decimals as in the corpus runs."""
     import holdcheck as hc
-    if hc.family(card.get("robot_type")) not in ("so100", "so101"):
+    if hc.family(card.get("robot_type")) not in hc.SO_FAMILIES:
         sys.exit("the cell simulates an SO-101 arm; this card is not an SO-100 or SO-101 arm")
     J = card.get("joints", {})
     miss = [k for k in JOINTS if "lost_motion_deg" not in J.get(k, {})]
@@ -144,7 +144,7 @@ def corpus_cards(cards_dir):
         c = _load(os.path.join(cards_dir, f))
         J = c.get("joints", {})
         fam = hc.family(c.get("robot_type"))
-        if fam not in ("so100", "so101") or any("lost_motion_deg" not in J.get(k, {}) for k in JOINTS):
+        if fam not in hc.SO_FAMILIES or any("lost_motion_deg" not in J.get(k, {}) for k in JOINTS):
             skipped += 1
             continue
         hw, sd = card_params(c)
