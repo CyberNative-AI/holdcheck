@@ -24,7 +24,7 @@ At the gripper (280 arms with all five joints measured), the 95% sideways placem
 
 If your path or policy can't approach from one side, `holdcheck/playfix.py` cancels the measured play in software: it aims half each joint's play past the target in the direction the joint is moving. On the recordings of 122 arms, a correction fitted on one recording and applied to another landed about as close from any side as one-side approaches (median ratio 1.02). If your card withholds a joint with play, the correction covers only the joints it lists, and the card says the one-side figure is not established with it. We have not tried it on a physical arm. Your recording made through it is that check, and holdcheck on that recording shows the play that is left. Refit after re-assembly, re-calibration or a servo swap. Details: [METHOD.md](METHOD.md#play-correction-04).
 
-For SO-100/101 arms the card also gives a simulated figure: how often a pick-and-place cell with 3 or 5 mm of lead-in would seat a part with this arm, and how many misses a supervisor should allow before it calls a person. Across 277 corpus arms the median is 72% at 3 mm and 94% at 5 mm. It is a model figure from a lookup table (`holdcheck/seatmap.json`); the cell simulator is not in this repository yet, and no physical cell was run. Details: [METHOD.md](METHOD.md#seat-success-in-a-pick-and-place-cell-and-supervisor-thresholds-05).
+For SO-100/101 arms the card also gives a simulated figure: how often a pick-and-place cell with 3 or 5 mm of lead-in would seat a part with this arm, and how many misses a supervisor should allow before it calls a person. Across 277 corpus arms the median is 72% at 3 mm and 94% at 5 mm. It is a model figure from a lookup table (`holdcheck/seatmap.json`), and no physical cell was run. The cell simulator is in `holdcheck/seatsim.py`: run your own card through it, with your own lead-in, camera noise and nest, or rebuild the table. Details: [METHOD.md](METHOD.md#seat-success-in-a-pick-and-place-cell-and-supervisor-thresholds-05).
 
 These are the servos alone, a lower bound at the tool: horns, screws and printed links add more. Full method, tables and limits: [METHOD.md](METHOD.md).
 
@@ -38,6 +38,9 @@ python holdcheck.py --repo <user>/<dataset> --out card.json --print
 python holdcheck.py --local ~/.cache/huggingface/lerobot/<user>/<dataset> --out card.json --print
 python test_holdcheck.py      # instrument check on a simulated arm with known play
 python test_playfix.py        # the correction on a simulated follower, closed loop
+python seatsim.py arm card.json --lead-in 3 5 --camera-mm 0.5   # simulated seat success of your arm (SO-100/101)
+python seatsim.py anchor       # the median-joint and p90-joint arms, against METHOD.md
+python test_seatsim.py         # the seat cell and its runner
 ```
 
 Apply the correction to a LeRobot follower (any robot object with `send_action`). `card.json` is the card written by `--out` above, or the file saved by the page's "Download card (JSON)" (named `holdcheck-<dataset>.json`); give its name:
@@ -54,6 +57,8 @@ Rebuild the corpus table:
 python corpus.py list --repo lerobot/community_dataset_v3 --out runs/index.json
 python corpus.py run --index runs/index.json --cards runs/cards --workers 8
 python corpus.py summary --cards runs/cards --out runs/summary.json --md runs/summary.md
+python seatsim.py corpus --cards runs/cards --out runs/seat.jsonl    # every SO-100/101 card through the cell
+python seatsim.py map --runs runs/seat.jsonl --out runs/seatmap.json  # the seat lookup; compare with seatmap.json
 ```
 
 The input dataset ids are in [corpus/datasets.txt](corpus/datasets.txt). The comparison table that ships with the tool, `holdcheck/corpus_summary.json`, holds distributions only. Per-dataset results are not published; you get a card for the dataset you run.
@@ -69,6 +74,7 @@ The browser page is in `web/`. It runs the same `holdcheck.py`, unchanged, in Py
 - `holdcheck/tipmap.json`, `holdcheck/tipmap.py`, `holdcheck/so101kin.py`, `holdcheck/model/`: SO-101 tool-point Jacobians at 64 table poses, and how to rebuild them. `python holdcheck/tipmap.py --out tipmap.json` reads the bundled MuJoCo Menagerie SO-101 model (`model/so101.xml`, Apache-2.0, see `model/NOTICE.md`) with numpy only and reproduces the shipped Jacobians exactly.
 - `holdcheck/corpus_summary.json`: the comparison table (percentiles only)
 - `holdcheck/seatmap.json`: the lookup from a card's one-side tip figure to simulated seat success at 3 and 5 mm
+- `holdcheck/seatcell.py`, `holdcheck/seatsim.py`, `holdcheck/test_seatsim.py`: the simulated pick-and-place cell behind it, a runner for one arm or the whole corpus, and their tests
 - `web/`: the static page, Pyodide and the fonts it serves itself
 - `METHOD.md`: method, corpus results and limits
 
