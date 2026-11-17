@@ -56,7 +56,7 @@ async function boot() {
         { messageCallback: () => {}, errorCallback: () => {} },
       );
       p.FS.mkdirTree("/hc");
-      for (const f of ["holdcheck.py", "engine.py", "tipmap.json", "corpus_summary.json"]) {
+      for (const f of ["holdcheck.py", "engine.py", "tipmap.json", "seatmap.json", "corpus_summary.json"]) {
         const r = await fetch(new URL("py/" + f, base));
         if (!r.ok) throw new Error("engine file " + f);
         p.FS.writeFile("/hc/" + f, new Uint8Array(await r.arrayBuffer()));

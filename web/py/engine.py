@@ -44,6 +44,7 @@ def measure(repo: str, sub: str, info_bytes, files, blobs, seed: int = 0) -> dic
         card["files"] = files
         if card.get("joints"):
             card["tip"] = hc.tip_figures(card["joints"])
+            card["seat"] = hc.seat_figures(card)
         src = {"repo": repo, "subdir": sub}
     except Exception as e:  # noqa: BLE001 - a bad dataset is a result, not a crash
         card, src = {"error": f"{type(e).__name__}: {e}"}, {"repo": repo, "subdir": sub, "local": None}
@@ -137,9 +138,68 @@ def view(card: dict) -> dict:
         for key in ("one_side_p95_mm", "either_side_p95_mm"):
             tip[key] = {"text": f"{t[key]:.1f}", "v": t[key], "place": hc._place(t[key], ts.get(key, {})), "pct": _pct(ts.get(key))}
         out["tip"] = tip
+    # report_text prints the cell figures only under the gripper figures; so does the page
+    out["seat"] = seat(card) if "one_side_p95_mm" in t else None
     out["correction"] = correction(card)
     out["state"] = "measured" if out["measured"] else "few"
     return out
+
+
+def seat(card: dict) -> dict | None:
+    """The card's pick-and-place figures for the page: seat_text()'s own lines, sorted into blocks.
+
+    seat_text() prints prose lines and indented rows ("  3 mm lead-in   ..."; a row's continuation is
+    indented further). The prose runs before the first row group go in `lead`, between the groups in
+    `ask`, after them in `close`; each row's words after its lead-in go in `rows[c]` or `calls[c]`.
+    A seated row's line splits into `success`, `what` and `band` for the figure (`v`, `band_v` raw, for its bar).
+    None when the card carries no seat block; {"not_computed": reason} when no lead-in has a figure."""
+    lines = hc.seat_text(card)
+    if not lines:
+        return None
+    st = card.get("seat") or {}
+    rows = st.get("lead_in_mm") or {}
+    if not any("success" in r for r in rows.values()):
+        return {"not_computed": lines[1].split(": not computed: ", 1)[1]}
+    blocks, cur = [], None
+    for x in lines[1:]:
+        kind = "row" if x.startswith("  ") else "prose"
+        if cur is None or cur[0] != kind:
+            cur = (kind, [])
+            blocks.append(cur)
+        cur[1].append(x)
+
+    def join(ls):
+        return " ".join(x.strip() for x in ls)
+
+    def keyed(ls):
+        out, last = {}, None
+        for x in ls:
+            m = re.match(r"  (\d+) mm lead-in   (.*)$", x)
+            if m:
+                last = m.group(1)
+                out[last] = m.group(2).strip()
+            else:
+                out[last] += " " + x.strip()
+        return out
+
+    prose = [join(b) for k, b in blocks if k == "prose"]
+    groups = [keyed(b) for k, b in blocks if k == "row"]
+    figs = []
+    for c, r in rows.items():
+        line = groups[0][c]
+        # call_none: no threshold for this lead-in (the arm misses more than the rule was tested on)
+        f = {"lead_in": c, "line": line, "call": groups[1].get(c) if len(groups) > 1 else None,
+             "call_none": "success" in r and "escalate_misses_in_60" not in r}
+        if "success" in r:
+            # "66% of placements seat (within 3 points for 9 in 10 held-out recordings)": figure, what it counts, its band
+            m = re.match(r"(\S+) (.+?) \((.+)\)$", line)
+            f.update({"success": m.group(1), "what": m.group(2), "band": m.group(3), "v": r["success"], "band_v": r["band"]}
+                     if m else {"success": f"{r['success']:.0%}", "what": line, "band": "", "v": r["success"], "band_v": r["band"]})
+        else:
+            f["not_computed"] = line.split("not computed: ", 1)[-1]
+        figs.append(f)
+    return {"lead": prose[0], "ask": prose[1] if len(prose) > 1 else "", "close": prose[2] if len(prose) > 2 else "",
+            "figs": figs, "model": st.get("model"), "band_note": st.get("band")}
 
 
 def correction(card: dict) -> dict | None:

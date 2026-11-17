@@ -284,5 +284,80 @@ class T(unittest.TestCase):
         self.assertEqual(hc.analyse(seven, z, z, np.zeros(100, int), np.random.default_rng(0))["skip"], c["skip"])
 
 
+    # 0.5: simulated seat success and the supervisor thresholds that follow
+    def _seat_card(self, lm, sd, rt="so101_follower"):
+        js = {k: {"lost_motion_deg": lm, "scatter_sd_deg": sd} for k in hc.TIP_JOINTS}
+        c = {"robot_type": rt, "joints": js}
+        c["tip"] = hc.tip_figures(js)
+        return c
+
+    def test_escalation_matches_m3(self):
+        # values from the simulated fault campaign: p0 0.0102 -> 5, 3; 0.1279 -> 18, 5; 0.3268 -> 32, 9; p0 0 -> 4, 3
+        for p0, want in ((0.0, (4, 3)), (0.0102, (5, 3)), (0.1279, (18, 5)), (0.3268, (32, 9))):
+            self.assertEqual(hc.escalation(p0), want)
+
+    def test_seat_tight_arm_seats_and_keeps_published_rule(self):
+        st = hc.seat_figures(self._seat_card(0.5, 0.05))
+        r5 = st["lead_in_mm"]["5"]
+        self.assertGreaterEqual(r5["success"], 0.99)
+        self.assertEqual((r5["escalate_misses_in_60"], r5["escalate_in_a_row"]), hc.escalation(1 - r5["success"]))
+        self.assertIn("not measured on a physical cell", st["model"])
+
+    def test_seat_monotone_in_scatter(self):
+        prev = None
+        for sd in (0.1, 0.2, 0.3, 0.45):
+            r = hc.seat_figures(self._seat_card(1.0, sd))["lead_in_mm"]["3"]
+            if prev is not None:
+                self.assertLessEqual(r["success"], prev)
+            prev = r["success"]
+
+    def test_seat_loose_arm_gets_no_threshold(self):
+        st = hc.seat_figures(self._seat_card(2.0, 0.55))
+        r3 = st["lead_in_mm"]["3"]
+        self.assertTrue("not_computed" in r3 or ("success" in r3 and 1 - r3["success"] > hc.SEAT_P0_TESTED))
+        self.assertNotIn("escalate_misses_in_60", r3)
+        self.assertNotIn(" of the last 60 placements miss", "\n".join(l for l in hc.seat_text({"seat": st}) if l.startswith("  3 mm")))
+
+    def test_seat_outside_fitted_range_not_computed(self):
+        st = hc.seat_figures(self._seat_card(2.0, 3.0))
+        self.assertIn("looser than every arm", st["lead_in_mm"]["3"]["not_computed"])
+
+    def test_seat_only_so_arms_with_tip(self):
+        self.assertIn("not_computed", hc.seat_figures(self._seat_card(1.0, 0.2, rt="koch_follower")))
+        js = {k: {"lost_motion_deg": 1.0, "scatter_sd_deg": 0.2} for k in hc.TIP_JOINTS[:-1]}
+        c = {"robot_type": "so100_follower", "joints": js, "tip": hc.tip_figures(js)}
+        self.assertIn("not_computed", hc.seat_figures(c))
+
+    def test_seat_text_says_model(self):
+        c = self.run_case(12, 1.5, 0, "degrees")
+        c["robot_type"] = "so101_follower"
+        c["tip"] = hc.tip_figures(c["joints"])
+        c["seat"] = hc.seat_figures(c)
+        t = hc.report_text(c)
+        self.assertIn("not measured on a physical cell", t)
+        self.assertIn("Count the cell's own misses when it is set up", t)
+        # the band is over held-out recordings, split by recording: never a held-out-arm figure
+        self.assertIn("held-out recordings", t)
+        self.assertIn("split recordings, not arms", " ".join(t.split()))
+        self.assertNotIn("9 in 10 arms", t)
+        self.assertIn("not by arm", c["seat"]["band"])
+
+    def test_seat_share_never_reads_certain(self):
+        self.assertEqual([hc.share(p) for p in (0.999, 0.995, 0.994, 0.5, 0.005, 0.004, 0.0)],
+                         [">99%", ">99%", "99%", "50%", "1%", "<1%", "<1%"])
+        st = hc.seat_figures(self._seat_card(0.5, 0.05))
+        t = "\n".join(hc.seat_text({"seat": st}))
+        self.assertNotIn("100%", t)
+        self.assertNotIn("(a supervisor", t)
+
+    def test_small_family_note_in_text(self):
+        c = self.run_case(20, 2.0, 0, "degrees")
+        c["robot_type"] = "piper_follower"
+        summ = {"joints": {}, "by_family": {}, "arms_by_family": {"other:piper_follower": 1}}
+        t = hc.report_text(c, summ)
+        if hc.family("piper_follower") not in ("so100", "so101"):
+            self.assertIn("Not placed among other arms", t)
+            self.assertIn(f"needs at least {hc.COMPARE_MIN_ARMS}", t)
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

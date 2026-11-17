@@ -327,6 +327,78 @@ function downloads(view, compact) {
   return box;
 }
 
+function seatBar(f) {
+  // The share of placements that seat on a 0-100% track: solid to the band's low end, the lookup's
+  // 9-in-10 band as a lighter segment, a tick at the figure.
+  // Decorative: the figure and its band are in the words beside it.
+  const bar = el("div", "hc-seat-bar");
+  bar.setAttribute("aria-hidden", "true");
+  const pc = (n) => Math.max(0, Math.min(100, n * 100)) + "%";
+  const fill = el("span", "hc-seat-fill");
+  fill.style.setProperty("--a", pc(f.v - f.band_v));
+  const band = el("span", "hc-seat-band");
+  band.style.setProperty("--a", pc(f.v - f.band_v));
+  band.style.setProperty("--b", pc(f.v + f.band_v));
+  const mark = el("span", "hc-seat-mark");
+  mark.style.setProperty("--a", pc(f.v));
+  bar.append(fill, band, mark);
+  return bar;
+}
+
+function showSeat(s) {
+  // The card's pick-and-place figures: seat_text()'s own lines, as the engine sorts them (engine.seat).
+  const box = $("hc-seat");
+  box.hidden = !s;
+  if (!s) return;
+  const figs = $("hc-seat-figs");
+  if (s.not_computed) {
+    $("hc-seat-lead").textContent = `Not computed: ${s.not_computed}.`;
+    figs.replaceChildren();
+    figs.hidden = true;
+    $("hc-seat-call").hidden = true;
+    return;
+  }
+  $("hc-seat-lead").textContent = s.lead;
+  figs.hidden = false;
+  figs.replaceChildren(...s.figs.map((f) => {
+    const d = el("div", "hc-seat-fig");
+    d.append(el("span", "label", `${f.lead_in} mm lead-in`));
+    if (f.not_computed) {
+      d.append(el("p", "hc-seat-nc", `Not computed: ${f.not_computed}`));
+      return d;
+    }
+    const n = el("p", "hc-seat-num", f.success);
+    d.append(n, el("p", "hc-seat-what", f.what), seatBar(f));
+    if (f.band) d.append(el("p", "hc-place", f.band));
+    return d;
+  }));
+  const calls = s.figs.filter((f) => f.call);
+  $("hc-seat-call").hidden = !calls.length;
+  $("hc-seat-ask").textContent = s.ask;
+  const tbl = el("table", "hc-seatt");
+  tbl.append(el("caption", "hc-vh", "When a cell supervisor should call a person, per lead-in"));
+  const hr = el("tr");
+  for (const h of ["Lead-in", "Call a person when"]) {
+    const th = el("th", null, h);
+    th.scope = "col";
+    hr.append(th);
+  }
+  const head = el("thead");
+  head.append(hr);
+  const body = el("tbody");
+  for (const f of calls) {
+    const tr = el("tr");
+    const th = el("th", null, `${f.lead_in} mm`);
+    th.scope = "row";
+    // no threshold (an arm that misses more than 1 in 3): the engine's line reads as a limit
+    tr.append(th, el("td", f.call_none ? "hc-seat-none" : null, f.call));
+    body.append(tr);
+  }
+  tbl.append(head, body);
+  $("hc-seat-rows").replaceChildren(tbl);
+  $("hc-seat-close").textContent = s.close;
+}
+
 function showCorrection(c) {
   // The card's play correction: the engine's own sentences (correction_text) and its row formats.
   const box = $("hc-fix");
@@ -438,6 +510,7 @@ function show(view) {
     $("hc-tip-limit").parentElement.hidden = true;
   }
   setPlate(t.one_side_p95_mm ? t : null);
+  showSeat(view.seat);
   showCorrection(view.correction);
 
   const tbl = el("table", "hc-joints");

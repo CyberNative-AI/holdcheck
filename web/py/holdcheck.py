@@ -36,7 +36,7 @@ import urllib.request
 
 import numpy as np
 
-VERSION = "0.4.2"
+VERSION = "0.5.1"
 STEP_DEG = 360.0 / 4096.0
 HF = "https://huggingface.co"
 SO_JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
@@ -507,9 +507,71 @@ def tip_figures(joints: dict, tipmap: dict | None = None, per_pose: int = 200, s
         "one_side_p95_mm": round(float(np.percentile(lat[0], 95)), 2),
         "one_side_p50_mm": round(float(np.percentile(lat[0], 50)), 2),
         "either_side_p95_mm": round(float(np.percentile(lat[1], 95)), 2),
+        "one_side_within": {str(c): round(float((lat[0] <= c).mean()), 6) for c in SEAT_LEAD_IN_MM},
         "scatter_from": {k: ("free holds" if joints[k].get("scatter_sd_free_deg") is not None else "all holds") for k in TIP_JOINTS},
         "geometry": "SO-101 tool point, pointing down, 64 poses 13-25 cm in front of the base (SO-100 links differ slightly)",
     }
+
+
+SEATMAP = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seatmap.json")
+SEAT_LEAD_IN_MM = (3, 5)
+SEAT_FAMILIES = ("so100", "so101")
+SEAT_P0_TESTED = 0.33  # the own-rate escalation was tested in simulation up to a miss rate of 0.327
+
+
+def escalation(p0: float, window: int = 60, alpha: float = 1e-3, run_p: float = 1e-4) -> tuple:
+    """A supervisor's seat escalation set from an arm's own miss rate p0:
+    k misses in the last `window` cycles, k = max(4, smallest k with P(Binomial(window, p0) >= k) < alpha),
+    or s misses in a row, s = max(3, smallest s with p0**s < run_p). p0 = 0 gives the published 4 and 3."""
+    k, s = 4, 3
+    if p0 > 0:
+        tail = 1.0
+        for j in range(window + 1):
+            if tail < alpha:
+                k = max(4, j)
+                break
+            tail -= math.comb(window, j) * p0 ** j * (1 - p0) ** (window - j)
+        else:
+            k = window + 1  # never below alpha: no k in the window is unlikely by chance
+        s = max(3, math.ceil(math.log(run_p) / math.log(p0))) if p0 < 1 else window + 1
+    return k, s
+
+
+def seat_figures(card: dict, seatmap: dict | None = None) -> dict:
+    """Simulated seat success of this arm in a calibrated pick-and-place cell that approaches every target
+    from one side, and the supervisor thresholds that follow from its own miss rate.
+
+    The card's P(one-side tip error <= c) goes through a monotone lookup (`seatmap.json`, made by
+    the seatmap builder) fitted on 686 corpus cards, each run through the cell with its own play and scatter.
+    A model figure: no physical cell was run. Only for SO-100/101 arms with all five tip joints measured,
+    and only inside the range the lookup was fitted on."""
+    fam = family(card.get("robot_type"))
+    if fam not in SEAT_FAMILIES:
+        return {"not_computed": "the cell simulates an SO-101 arm; this is not an SO-100 or SO-101 arm"}
+    within = (card.get("tip") or {}).get("one_side_within")
+    if not within:
+        return {"not_computed": (card.get("tip") or {}).get("not_computed", "the gripper figures were not computed")}
+    if seatmap is None:
+        with open(SEATMAP) as f:
+            seatmap = json.load(f)
+    out = {}
+    for c in SEAT_LEAD_IN_MM:
+        m = seatmap["lead_in_mm"][str(c)]
+        p = within.get(str(c))
+        if p is None or p < m["p_min"]:
+            out[str(c)] = {"not_computed": "this arm is looser than every arm the lookup was fitted on"}
+            continue
+        succ = float(np.interp(p, m["p_one_side"], m["success"]))
+        out[str(c)] = {"success": round(succ, 3), "band": m["band_p90_abs"]}
+        if 1.0 - succ <= SEAT_P0_TESTED:
+            k, s = escalation(1.0 - succ)
+            out[str(c)].update(escalate_misses_in_60=k, escalate_in_a_row=s)
+    return {"lead_in_mm": out,
+            "model": "simulated: this arm's play and scatter in a calibrated pick-and-place cell that approaches "
+                     "every target from one side (camera 0.5 mm); not measured on a physical cell",
+            "band": "for 9 in 10 held-out corpus recordings, the lookup was within this many points of the recording's "
+                    "own simulation (five-fold cross-validation split by recording, not by arm: recordings of one arm "
+                    "can be in both the fitted and the held-out part, so this is not a figure over held-out arms)"}
 
 
 def _place(v: float, p: dict) -> str:
@@ -548,6 +610,11 @@ def report_text(card: dict, summary: dict | None = None) -> str:
     ]
     fam = family(card.get("robot_type"))
     table = compare_table(summary, fam)
+    if summary and not table:
+        n = summary.get("arms_by_family", {}).get(fam, 0)
+        L.insert(-1, f"Not placed among other arms: the corpus behind this check has {n} {card.get('robot_type')} "
+                     f"arm{'' if n == 1 else 's'}, and a comparison needs at least {COMPARE_MIN_ARMS}.")
+        L.insert(-1, "")
     for k in SO_JOINTS[:-1]:
         j = card["joints"].get(k, {})
         if "lost_motion_deg" not in j:
@@ -579,8 +646,41 @@ def report_text(card: dict, summary: dict | None = None) -> str:
         "A placement whose lead-in or tolerance is smaller than these will miss about 1 time in 20 or more from",
         "this arm's servos alone, before camera, calibration and printed-part play are added. Approaching every",
         *("target from the same side removes the lost-motion part" + same_side_clause(card)).split("\n"),
-    ]
+    ] + seat_text(card)
     return "\n".join(L + correction_text(card))
+
+
+def share(p: float) -> str:
+    """A model share as a percentage that never reads as a certainty: one token, ">99%" or "<1%" at the ends."""
+    return ">99%" if p >= 0.995 else "<1%" if p < 0.005 else f"{min(max(round(p * 100), 1), 99)}%"
+
+
+def seat_text(card: dict) -> list:
+    st = card.get("seat") or {}
+    rows = st.get("lead_in_mm") or {}
+    ok = {c: r for c, r in rows.items() if "success" in r}
+    if not ok:
+        return ["", f"In a pick-and-place cell: not computed: {st.get('not_computed') or next((r['not_computed'] for r in rows.values()), 'no card figures')}"] if st else []
+    L = ["", "In a pick-and-place cell that approaches every target from one side (a simulation of this arm's",
+         "play and scatter, camera 0.5 mm; not measured on a physical cell). Each band is the lookup's error on",
+         "held-out corpus recordings; the folds split recordings, not arms, so one arm's recordings can be on",
+         "both sides of a split:"]
+    for c, r in rows.items():
+        if "success" not in r:
+            L.append(f"  {c} mm lead-in   not computed: {r['not_computed']}")
+            continue
+        L.append(f"  {c} mm lead-in   {share(r['success'])} of placements seat (within {r['band'] * 100:.0f} points for 9 in 10 held-out recordings)")
+    L += ["A supervisor that calls a person on repeated misses should allow for this arm's own misses, or it",
+          "will call for the wrong fix. From this arm's simulated miss rate, call when"]
+    for c, r in ok.items():
+        if "escalate_misses_in_60" in r:
+            L.append(f"  {c} mm lead-in   {r['escalate_misses_in_60']} of the last 60 placements miss, or {r['escalate_in_a_row']} in a row")
+        else:
+            L.append(f"  {c} mm lead-in   no threshold: this arm misses more than 1 placement in 3, beyond what the rule was")
+            L.append(f"  {'':<14}tested on; a larger lead-in or a tighter arm comes first")
+    L += ["A supervisor set for an arm with no misses of its own would call at 4 of 60 or 3 in a row.",
+          "Count the cell's own misses when it is set up, and use that count instead of this one."]
+    return L
 
 
 def correction_left(card: dict) -> list:
@@ -661,6 +761,7 @@ def main(argv=None):
             card["files"] = files
             if card.get("joints"):
                 card["tip"] = tip_figures(card["joints"])
+                card["seat"] = seat_figures(card)
     except Exception as e:  # noqa: BLE001 - a bad dataset is a result, not a crash
         card, src = {"error": f"{type(e).__name__}: {e}"}, {"repo": a.repo, "subdir": a.subdir, "local": a.local}
     card["source"] = src

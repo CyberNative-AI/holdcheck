@@ -415,3 +415,32 @@ table.hc-fixt { table-layout: fixed; }
 /* Code keeps its lines: a phone scrolls the block sideways (it is focusable for keyboards). */
 .hc-usage { font-size: var(--wp-text-cite); margin: var(--wp-4) 0 0; max-width: 46rem; padding: var(--wp-4) var(--wp-6); white-space: pre; }
 .hc-usage:focus-visible { outline: 2px solid var(--wp-focus); outline-offset: 3px; }
+
+/* Pick-and-place cell: under the gripper figures, a simulation of this arm in a one-direction cell.
+   Two figures side by side (also on a phone: 3 mm against 5 mm is the comparison), then the
+   supervisor's call per lead-in. Light, on the sheet: the dark field stays the gripper's answer. */
+.hc-seat { border-top: var(--wp-rule-strong) solid var(--wp-ink); margin: var(--wp-8) 0 0; padding: var(--wp-6) 0 0; }
+.hc-seat h3.label { margin: 0 0 var(--wp-3); }
+.hc-seat > p { max-width: var(--wp-measure); }
+.hc-seat-figs { display: grid; gap: var(--wp-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin: var(--wp-6) 0; max-width: 40rem; }
+.hc-seat-fig { background: var(--wp-panel); border-top: var(--wp-rule-strong) solid var(--wp-ink); padding: var(--wp-4) var(--wp-6) var(--wp-6); }
+.hc-seat-fig .label { display: block; }
+.hc-seat-num { font: 500 clamp(2.5rem, 5vw, 3.25rem)/1 var(--wp-font-body); font-variant-numeric: tabular-nums lining-nums; letter-spacing: -0.03em; margin: var(--wp-3) 0 var(--wp-1); }
+.hc-seat-what { font-size: var(--wp-text-meta); margin: 0 0 var(--wp-3); }
+.hc-seat-nc { color: var(--wp-muted); font-size: var(--wp-text-meta); margin: var(--wp-3) 0 0; }
+.hc-seat-bar { background: var(--wp-hair); height: 0.5rem; margin: var(--wp-3) 0 var(--wp-2); position: relative; }
+.hc-seat-bar span { position: absolute; }
+.hc-seat-fill { background: var(--wp-ink); inset: 0 calc(100% - var(--a)) 0 0; }
+.hc-seat-band { background: var(--oa-blue); inset: 0 calc(100% - var(--b)) 0 var(--a); }
+.hc-seat-mark { background: var(--wp-ink); height: 1rem; left: var(--a); top: -0.25rem; transform: translateX(-1px); width: 2px; }
+.hc-seat-call { max-width: 40rem; }
+.hc-seat-call .hc-table { margin: var(--wp-4) 0; }
+table.hc-seatt { table-layout: fixed; }
+.hc-seatt thead th:first-child { width: 22%; }
+.hc-seatt th, .hc-seatt td { vertical-align: top; }
+.hc-seatt tbody th { font-weight: 600; }
+.hc-seatt td.hc-seat-none { color: var(--wp-rust); }
+@media (max-width: 720px) {
+  .hc-seat-figs { gap: var(--wp-3); }
+  .hc-seat-fig { padding: var(--wp-3) var(--wp-3) var(--wp-4); }
+}
