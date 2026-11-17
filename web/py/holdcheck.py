@@ -36,7 +36,7 @@ import urllib.request
 
 import numpy as np
 
-VERSION = "0.5.2"
+VERSION = "0.5.3"
 STEP_DEG = 360.0 / 4096.0
 HF = "https://huggingface.co"
 SO_JOINTS = ["shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper"]
@@ -757,7 +757,7 @@ def main(argv=None):
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--print", action="store_true", help="print the card for a person")
     p.add_argument("--compare", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "corpus_summary.json"),
-                   help="corpus summary.json to place each joint against (default: the bundled 371-arm table)")
+                   help="corpus summary.json to place each joint against (default: the bundled 647-arm table: the 2025 corpus and a 2026 sample)")
     a = p.parse_args(argv)
     rng = np.random.default_rng(a.seed)
     t0 = time.time()

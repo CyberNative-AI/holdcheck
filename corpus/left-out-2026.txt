@@ -1,0 +1,2 @@
+# Left out of the comparison table: a simulation whose values sit on an encoder lattice, so holdcheck reads it as an arm.
+marin6670/so101_sim_teleop_block_20260804

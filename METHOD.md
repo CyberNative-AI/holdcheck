@@ -1,6 +1,6 @@
 # holdcheck: method, corpus results and limits
 
-Version 0.4.2, November 2026. Evidence kind: published teleoperation recordings read by this instrument. No arm was moved for this work, and nothing here is a bench trial.
+Version 0.5.3, November 2026. Evidence kind: published teleoperation recordings read by this instrument. No arm was moved for this work, and nothing here is a bench trial.
 
 ## What it measures
 
@@ -26,7 +26,20 @@ Each joint settles with Gaussian scatter of its measured sd (free-hold scatter w
 
 ## Corpus
 
-`lerobot/community_dataset_v3`: 1,755 datasets from 492 contributors (ids in `corpus/datasets.txt`). 1,574 were measured, 180 skipped (not a single six-joint SO-style arm, or action and state differ) and 1 failed to read. Each contributor counts as one arm per robot family (median of each figure over their datasets), so a prolific recorder does not dominate. 371 SO-100/101 arms result.
+`lerobot/community_dataset_v3`: 1,755 datasets from 492 contributors (ids in `corpus/datasets.txt`). 1,574 were measured, 180 skipped (not a single six-joint SO-style arm, or action and state differ) and 1 failed to read. Each contributor counts as one arm per robot family (median of each figure over their datasets), so a prolific recorder does not dominate. 371 SO-100/101 arms result. The tables in this section are this corpus alone (`holdcheck/corpus_summary_2025.json`).
+
+### 2026 sample (0.5.3)
+
+None of the corpus recordings carries LeRobot's newer `so_follower` label, so we checked the table against a second sample of more recently published datasets. We drew one public SO-arm dataset each from 400 authors (seed 20261117), out of the Hugging Face dataset repositories created in 2026 that their tags and names mark as SO-arm recordings (ids in `corpus/datasets-2026.txt`). A repository's creation date is not the date of its recording or of its author's first dataset. We ran holdcheck 0.5.2 on them. 396 were read and 4 were not (one was cut off by the run's time limit); of the 396, 17 failed to read, 34 were skipped as not a single six-joint arm 5 are not SO arms and 63 SO sets gave no joint figure. The 17 and the 4 are missing reads, not results. 277 SO arms were measured, 239 with a gripper figure. Selection by tag and name also takes in simulations: 14 of the sampled sets are simulations, 13 gave no figure (their values are not on an encoder lattice), and one passes the encoder-step check, which holdcheck cannot tell from a real arm. The comparison below includes that one; the comparison table a card is placed against leaves it out (`corpus/left-out-2026.txt`), so 276 arms enter that table, 238 with a gripper figure. Against one recording per corpus contributor, like for like:
+
+| median | 2026 sample | 2025 corpus | shift between two sessions of one arm |
+|---|---|---|---|
+| gripper, one side, 95% radius | 3.35 mm | 3.74 mm | 1.13 mm |
+| gripper, any side, 95% radius | 9.70 mm | 9.38 mm | 1.36 mm |
+| shoulder_pan lost motion | 0.89 deg | 0.73 deg | 0.11 deg |
+| wrist_roll lost motion | 0.88 deg | 0.70 deg | 0.09 deg |
+
+In this sample, the gripper medians differed by less than the typical session shift (0.39 and 0.32 mm, against 1.13 and 1.36 mm). The two unloaded joints read about two encoder steps more play, more than that shift, so an arm like those in the sample would have read looser at the base than it is among them. Since 0.5.3 the comparison table a card is placed against (`holdcheck/corpus_summary.json`) holds both sets: 647 SO-100/101 arms, 518 with a gripper figure (median 3.5 mm from one side, 9.5 mm from any side). The 2026 sample is one recording per author, so an arm's session-to-session spread is not averaged out as it is for corpus contributors with several datasets. A softer position gain would explain more play with less scatter on the unloaded joints, but the recordings do not carry the gain, so that cause is not shown.
 
 ### Per joint, SO-100 and SO-101 together, one value per arm
 
@@ -97,7 +110,7 @@ A gripper figure says how far this arm lands from a target. A cell owner asks so
 - The STS3215's encoder sits on the output shaft. Play between the shaft and the link (horn screws, printed parts, link bending) does not appear. All figures are a lower bound on error at the tool.
 - A hold where the arm presses on the table or an object reads as error. Medians limit this; they do not remove it. Free-hold figures are therefore still an upper bound on the servo's own scatter.
 - Free-hold scatter covers fewer arms (126 to 224 per joint) because not every recording has long empty-gripper holds; those arms may differ from the rest.
-- Every degree figure assumes the 1/4096-turn step of SO-100/101 and Koch servos. For other arms the figures are in that unit, which may not be theirs. A family is placed against other arms only when the corpus has at least 5 of them (SO-100/101 together, 371; Koch, 12), so a lone Piper or Moss arm is not compared with itself. Since its 2026 consolidation of the SO robots, LeRobot records SO-100 and SO-101 followers alike as `so_follower`; from 0.5.2 holdcheck reads that name as an SO-100/101 arm for the comparison, the correction and the seat figure (0.5.1 and earlier did not, and gave such a card none of the three). The corpus itself holds no `so_follower` recordings, so its figures are unchanged.
+- Every degree figure assumes the 1/4096-turn step of SO-100/101 and Koch servos. For other arms the figures are in that unit, which may not be theirs. A family is placed against other arms only when the corpus has at least 5 of them (SO-100/101 together, 647 with the 2026 sample; Koch, 12), so a lone Piper or Moss arm is not compared with itself. Since its 2026 consolidation of the SO robots, LeRobot records SO-100 and SO-101 followers alike as `so_follower`; from 0.5.2 holdcheck reads that name as an SO-100/101 arm for the comparison, the correction and the seat figure (0.5.1 and earlier did not, and gave such a card none of the three). The 2025 corpus holds no `so_follower` recordings; the 2026 sample in the comparison table is mostly `so_follower`.
 - One contributor is taken as one arm per family. Some record with several arms; some arms appear under several names.
 - The tip figures use one SO-101 map for both arms, at table poses only, and assume joint errors are independent.
 - Seat success and thresholds are simulation. The cell has no load-dependent play, wear, temperature drift or correlation between joints, and its part, nest and camera are one design. No physical cell was run.

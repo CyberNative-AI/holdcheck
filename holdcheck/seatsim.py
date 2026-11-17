@@ -6,7 +6,7 @@ Your own arm, from the card the page lets you download (SO-100/101, five tip joi
     python seatsim.py arm card.json                       # 3 and 5 mm, camera 0.5 mm, 10 units x 500 placements
     python seatsim.py arm card.json --lead-in 2 3 4 5 8 --camera-mm 0.3 --grasp-capture-mm 4
 
-The median-joint and p90-joint arms from the shipped corpus table (seconds; compares with METHOD.md):
+The median-joint and p90-joint arms of the 2025 corpus table (seconds; compares with METHOD.md):
     python seatsim.py anchor
 
 The table itself, from your own corpus run (`corpus.py run ... --cards runs/cards`, see README.md):
@@ -29,7 +29,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import seatcell as sc  # noqa: E402
 
-SUMMARY = os.path.join(HERE, "corpus_summary.json")
+# the anchor is the published reference arm of the 2025 corpus (lerobot/community_dataset_v3); the
+# bundled comparison table (corpus_summary.json) also holds the 2026 sample since 0.5.3
+SUMMARY = os.path.join(HERE, "corpus_summary_2025.json")
 TIPMAP = os.path.join(HERE, "tipmap.json")
 def _load(path):
     with open(path) as f:
@@ -260,7 +262,7 @@ def main():
     p.add_argument("--units", type=int, default=10)
     p.add_argument("--placements", type=int, default=500)
     p.add_argument("--label", help="names the random stream (default: arm); a corpus arm reproduces with its corpus key")
-    p = sub.add_parser("anchor", help="the median-joint and p90-joint arms from the shipped corpus table")
+    p = sub.add_parser("anchor", help="the median-joint and p90-joint arms of the 2025 corpus table")
     p.add_argument("--summary", default=SUMMARY)
     p = sub.add_parser("corpus", help="run every SO-100/101 card of a corpus run through the cell")
     p.add_argument("--cards", required=True, help="the --cards directory of corpus.py run")

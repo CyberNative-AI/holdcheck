@@ -3,10 +3,12 @@
 
   corpus.py list   --repo lerobot/community_dataset_v3 --out runs/index.json
   corpus.py run    --index runs/index.json --cards runs/cards [--limit N] [--workers 6]
-  corpus.py summary --cards runs/cards --out runs/summary.json --md runs/summary.md
+  corpus.py summary --cards runs/cards [--cards more/cards] [--exclude ids.txt] --out runs/summary.json --md runs/summary.md
 
 A card already on disk is not fetched again. Each card names the dataset; the contributor (the
-first path part) stands in for one physical arm, since a person usually records on one arm.
+first path part in a collection repo, the repo owner otherwise) stands in for one physical arm, since a
+person usually records on one arm. summary reads each dataset once: a copy in a second card dir is dropped,
+a different card for the same dataset stops the run.
 """
 from __future__ import annotations
 
@@ -115,12 +117,66 @@ def _md(title, table):
     return L + [""]
 
 
+# repos laid out as <contributor>/<dataset>/ (what `corpus.py list` reads); add more with --collection
+COLLECTIONS = ("lerobot/community_dataset_v3",)
+
+
+def _contributor(c, collections=COLLECTIONS):
+    """the person who stands in for one arm: in a collection repo the first part of the subdir, otherwise the
+    repo owner, even when the dataset sits in a subdir of that repo. Layouts that name nobody are refused."""
+    s = c["source"]
+    repo, sub = (s.get("repo") or "").strip("/"), (s.get("subdir") or "").strip("/")
+    if s.get("local") or "/" not in repo:
+        raise ValueError(f"card names no repo owner: {s}")
+    if repo in collections:
+        parts = sub.split("/")
+        if len(parts) < 2 or not all(parts):
+            raise ValueError(f"{repo} is a collection; its subdir must be <contributor>/<dataset>, got {sub!r}")
+        return parts[0]
+    return repo.split("/")[0]
+
+
+def _dataset_id(c):
+    s = c["source"]
+    repo, sub = (s.get("repo") or "").strip("/"), (s.get("subdir") or "").strip("/")
+    return f"{repo}/{sub}" if sub else repo
+
+
+# fields that differ between two runs of the same dataset without the measurement changing
+_RUN_ONLY = ("seconds",)
+
+
+def _same_card(x, y):
+    return {k: v for k, v in x.items() if k not in _RUN_ONLY} == {k: v for k, v in y.items() if k not in _RUN_ONLY}
+
+
 def cmd_summary(a):
-    cards = []
-    for f in sorted(os.listdir(a.cards)):
-        if f.endswith(".json"):
-            cards.append((f, json.load(open(os.path.join(a.cards, f)))))
+    exclude = set()
+    for path in a.exclude or []:
+        exclude |= {x.split("#")[0].strip() for x in open(path) if x.split("#")[0].strip()}
+    collections = set(COLLECTIONS) | set(getattr(a, "collection", None) or [])
+    cards, seen, dupes = [], {}, 0
+    for d in a.cards:
+        for f in sorted(os.listdir(d)):
+            if f.endswith(".json") and f != "index.json":
+                path = os.path.join(d, f)
+                c = json.load(open(path))
+                if "source" not in c:
+                    raise SystemExit(f"{path}: card has no source, cannot tell which dataset it is")
+                key = _dataset_id(c)
+                if key in exclude:
+                    continue
+                # one dataset counts once however many directories hold it; two different cards for it are refused
+                if key in seen:
+                    if not _same_card(seen[key][1], c):
+                        raise SystemExit(f"{path}: differs from {seen[key][0]}, both read {key}; keep one")
+                    dupes += 1
+                    continue
+                seen[key] = (path, c)
+                cards.append((f, c))
     tally = {"cards": len(cards), "error": 0, "skip": 0, "measured": 0}
+    if dupes:
+        tally["duplicates_dropped"] = dupes
     # family -> contributor -> joint -> [joint records]
     per_fam: dict[str, dict[str, dict[str, list]]] = {}
     modes: dict[str, int] = {}
@@ -136,7 +192,7 @@ def cmd_summary(a):
         rt = str(c.get("robot_type"))
         robot_types[rt] = robot_types.get(rt, 0) + 1
         fam = hc.family(rt)
-        contrib = c["source"]["subdir"].split("/")[0]
+        contrib = _contributor(c, collections)
         for k, j in c["joints"].items():
             m = j["lattice"].get("mode") if j["lattice"].get("ok") else "unlattice"
             modes[m] = modes.get(m, 0) + 1
@@ -206,7 +262,11 @@ def main():
     x.add_argument("--limit", type=int, default=0)
     x.add_argument("--workers", type=int, default=6)
     x = sp.add_parser("summary")
-    x.add_argument("--cards", required=True)
+    x.add_argument("--cards", required=True, action="append", help="a card directory; repeat to pool several")
+    x.add_argument("--exclude", action="append", help="file of dataset ids (repo or repo/subdir) to leave out, # comments")
+    x.add_argument("--collection", action="append",
+                   help="a repo laid out as <contributor>/<dataset> (default: lerobot/community_dataset_v3); "
+                        "a subdir of any other repo belongs to that repo's owner")
     x.add_argument("--out", required=True)
     x.add_argument("--md")
     a = p.parse_args()

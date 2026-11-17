@@ -7,6 +7,7 @@ quantised to whole encoder steps and stored either in degrees or in -100..100 ov
 range, as LeRobot does. A teleop-like command (ramps, holds, hand jitter) drives it.
 """
 import json
+import os
 import math
 import sys
 import unittest
@@ -403,6 +404,96 @@ class T(unittest.TestCase):
         for claim in ("horn", "inside the servo", "try 32", "32", "shaking"):
             self.assertNotIn(claim, t)
 
+
+    def test_corpus_pools_card_dirs_and_excludes(self):
+        """0.5.3: summary pools several card dirs; a stand-alone dataset's arm is its repo owner; excluded ids drop out"""
+        import os
+        import tempfile
+        import corpus
+        c = self.run_case(20, 2.0, 0, "degrees")
+        c["robot_type"] = "so_follower"
+        with tempfile.TemporaryDirectory() as td:
+            a, b = os.path.join(td, "a"), os.path.join(td, "b")
+            os.makedirs(a), os.makedirs(b)
+            for d, src, name in ((a, {"repo": "lerobot/community_dataset_v3", "subdir": "alice/set1"}, "x"),
+                                 (b, {"repo": "bob/set2", "subdir": ""}, "y"),
+                                 (b, {"repo": "carol/sim", "subdir": ""}, "z")):
+                json.dump(dict(c, source=src), open(os.path.join(d, name + ".json"), "w"))
+            ex = os.path.join(td, "ex.txt")
+            open(ex, "w").write("# comment\ncarol/sim  # a simulation\n")
+            self.assertEqual(corpus._contributor({"source": {"repo": "bob/set2", "subdir": ""}}), "bob")
+            self.assertEqual(corpus._contributor({"source": {"repo": "lerobot/community_dataset_v3", "subdir": "alice/s"}}), "alice")
+            out = os.path.join(td, "s.json")
+            corpus.cmd_summary(type("A", (), {"cards": [a, b], "exclude": [ex], "out": out, "md": None})())
+            s = json.load(open(out))
+            self.assertEqual(s["tally"]["cards"], 2)
+            self.assertEqual(s["arms_by_family"], {"so": 2})
+            self.assertEqual(s["joints"]["elbow_flex"]["contributors"], 2)
+
+    def _pool(self, dirs, td, **kw):
+        import corpus
+        out = os.path.join(td, "s.json")
+        corpus.cmd_summary(type("A", (), dict({"cards": dirs, "exclude": None, "out": out, "md": None}, **kw))())
+        return json.load(open(out))
+
+    def test_corpus_overlapping_dirs_count_a_dataset_once(self):
+        """0.5.3: a dataset in two card dirs is read once; a different card for it stops the run"""
+        import copy
+        import tempfile
+        c = self.run_case(20, 2.0, 0, "degrees")
+        c["robot_type"] = "so_follower"
+        s1, s9 = copy.deepcopy(c), copy.deepcopy(c)
+        s1["joints"]["elbow_flex"]["lost_motion_deg"] = 1.0
+        s9["joints"]["elbow_flex"]["lost_motion_deg"] = 9.0
+        s1["source"] = {"repo": "lerobot/community_dataset_v3", "subdir": "alice/s1"}
+        s9["source"] = {"repo": "lerobot/community_dataset_v3", "subdir": "alice/s9"}
+        with tempfile.TemporaryDirectory() as td:
+            a, b, x = (os.path.join(td, n) for n in "abx")
+            for d in (a, b, x):
+                os.makedirs(d)
+            json.dump(s1, open(os.path.join(a, "s1.json"), "w"))
+            json.dump(s9, open(os.path.join(a, "s9.json"), "w"))
+            base = self._pool([a], td)
+            ef = base["joints"]["elbow_flex"]
+            self.assertEqual((ef["contributors"], ef["datasets"], ef["lost_motion_deg"]["p50"]), (1, 2, 5.0))
+            # a copy of one session in another dir (a re-run differs only in run time): dropped, median stays 5
+            json.dump(dict(s1, seconds=s1.get("seconds", 0) + 3), open(os.path.join(b, "again.json"), "w"))
+            s = self._pool([a, b], td)
+            self.assertEqual(s["joints"]["elbow_flex"], ef)
+            self.assertEqual(s["tally"]["duplicates_dropped"], 1)
+            # the same directory twice: holds and datasets do not double
+            s = self._pool([a, a], td)
+            self.assertEqual(s["joints"], base["joints"])
+            self.assertEqual(s["tally"]["cards"], 2)
+            # a different card for an already-read dataset is refused, not weighed in
+            json.dump(dict(s1, joints=s9["joints"]), open(os.path.join(x, "s1.json"), "w"))
+            with self.assertRaises(SystemExit):
+                self._pool([a, x], td)
+            self.assertNotIn("duplicates_dropped", base["tally"])
+
+    def test_corpus_standalone_subdirs_keep_their_owner(self):
+        """0.5.3: a subdir only names a contributor inside a collection repo"""
+        import tempfile
+        import corpus
+        c = self.run_case(20, 2.0, 0, "degrees")
+        c["robot_type"] = "so_follower"
+        with tempfile.TemporaryDirectory() as td:
+            a = os.path.join(td, "a")
+            os.makedirs(a)
+            for repo, sub, n in (("alice/one", "session/a", "x"), ("bob/two", "session/b", "y")):
+                json.dump(dict(c, source={"repo": repo, "subdir": sub}), open(os.path.join(a, n + ".json"), "w"))
+            s = self._pool([a], td)
+            self.assertEqual(s["arms_by_family"], {"so": 2})
+            self.assertEqual(s["joints"]["elbow_flex"]["contributors"], 2)
+            # named as a collection, the same layout groups by the subdir's first part
+            s = self._pool([a], td, collection=["alice/one", "bob/two"])
+            self.assertEqual(s["arms_by_family"], {"so": 1})
+        self.assertEqual(corpus._contributor({"source": {"repo": "alice/one", "subdir": "session/a"}}), "alice")
+        for bad in ({"repo": "lerobot/community_dataset_v3", "subdir": "alice"},   # collection, no dataset part
+                    {"repo": "lerobot/community_dataset_v3", "subdir": ""},
+                    {"repo": "", "subdir": "", "local": "/data/x"}):                # a local card names no owner
+            with self.assertRaises(ValueError, msg=bad):
+                corpus._contributor({"source": bad})
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

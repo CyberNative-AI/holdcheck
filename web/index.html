@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' https://huggingface.co https://*.hf.co; style-src 'self'; font-src 'self' https://*.hf.co; img-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <title>Arm play check for SO-100 and SO-101 · CyberNative</title>
-<meta name="description" content="Paste the Hugging Face id of a LeRobot dataset you recorded. Your browser measures each joint's play and settle scatter, and how far the gripper can miss, against 371 other SO arms.">
+<meta name="description" content="Paste the Hugging Face id of a LeRobot dataset you recorded. Your browser measures each joint's play and settle scatter, and how far the gripper can miss, against 647 other SO arms.">
 <link rel="stylesheet" href="holdcheck.css">
 <link rel="icon" href="mark-favicon.svg" type="image/svg+xml">
 <script type="module" src="app.js"></script>
@@ -24,7 +24,7 @@
   <div class="wrap opening hc-opening" id="hc-main">
     <div class="hc-ask">
       <h1>How far does your arm <em>miss by</em>?</h1>
-      <p class="lede">Paste the id of a LeRobot dataset you recorded with an SO-100 or SO-101. Your browser reads its joint recordings from Hugging Face and measures each joint's play and settle scatter, then what they mean at the gripper, against 371 other arms. <a href="#hc-privacy">We receive nothing you paste.</a></p>
+      <p class="lede">Paste the id of a LeRobot dataset you recorded with an SO-100 or SO-101. Your browser reads its joint recordings from Hugging Face and measures each joint's play and settle scatter, then what they mean at the gripper, against 647 other arms. <a href="#hc-privacy">We receive nothing you paste.</a></p>
       <form class="hc-form" id="hc-form" novalidate>
         <div class="hc-field">
           <label for="hc-id">Dataset id on Hugging Face</label>
@@ -43,9 +43,9 @@
         </div>
       </form>
     </div>
-    <figure class="hc-plate" id="hc-plate" data-one="3.6" data-either="9.2" data-one-v="3.63" data-either-v="9.23">
-      <div class="hc-plate-draw" id="hc-plate-draw" role="img" aria-label="A typical SO arm, seen from above at the gripper: 95 percent of arrivals land within 3.6 millimetres of the target when the arm approaches from one side, and within 9.2 millimetres when it approaches from any side."></div>
-      <figcaption id="hc-plate-cap"><span class="label">A typical SO arm, from above</span>95% of arrivals at a target land inside each circle. Inner: approaching from one side, 3.6 mm. Outer: from any side, 9.2 mm. Grid 5 mm.</figcaption>
+    <figure class="hc-plate" id="hc-plate" data-one="3.5" data-either="9.5" data-one-v="3.45" data-either-v="9.515">
+      <div class="hc-plate-draw" id="hc-plate-draw" role="img" aria-label="A typical SO arm, seen from above at the gripper: 95 percent of arrivals land within 3.5 millimetres of the target when the arm approaches from one side, and within 9.5 millimetres when it approaches from any side."></div>
+      <figcaption id="hc-plate-cap"><span class="label">A typical SO arm, from above</span>95% of arrivals at a target land inside each circle. Inner: approaching from one side, 3.5 mm. Outer: from any side, 9.5 mm. Grid 5 mm.</figcaption>
     </figure>
   </div>
 </header>
@@ -139,7 +139,7 @@ robot = wrap_send_action(robot, PlayCorrection.from_card(json.load(open("card.js
       <p>Lost motion is the width of a play band fitted to those settled errors, replaying the command from where the approach began; the 90% interval comes from resampling the holds. Scatter is the robust spread of the settled error from one side. A joint needs at least 8 holds from above and 8 from below. The step size is read from the recording itself, so degrees and the -100..100 range both work.</p>
       <p>At the gripper, each joint's scatter and half its lost motion go through the SO-101 arm's geometry at 64 table poses 13 to 25 cm in front of the base, tool pointing down. The figure is the sideways distance that holds 95% of arrivals. SO-100 links differ slightly; the same geometry is used.</p>
       <p>In a pick-and-place cell, a simulated SO-101 picks a part and seats it in a socket, with automatic calibration, 0.5 mm of camera noise and every target approached from one side; each joint gets this arm's own play and scatter. Running that cell takes seconds per arm, so the card looks the arm up in a table fitted on 686 corpus recordings run through it: for 9 in 10 held-out recordings the table is within 3.3 points of the recording's own simulation at 3 mm, and 2.7 at 5 mm. The cross-validation split recordings, not arms, so one arm's recordings can be on both sides; this is not a figure for an arm the table has never seen. The supervisor counts are the smallest that this arm's simulated misses would reach by chance less than 1 time in 1,000 in 60 placements (at least 4), or 1 in 10,000 in a row (at least 3). No physical cell was run.</p>
-      <p>The comparison is 371 SO-100 and SO-101 arms measured the same way from public LeRobot recordings, one value per arm; 280 of them have all five joints measured for the gripper figures.</p>
+      <p>The comparison is 647 SO-100 and SO-101 arms measured the same way from public LeRobot recordings, one value per arm, 276 of them from Hugging Face datasets created in 2026; 518 of them have all five joints measured for the gripper figures.</p>
       <div class="limit"><span class="label">Limit</span>The servo's encoder sits on its output shaft, so play between the shaft and the link (horn screws, printed parts, link bending) does not appear. Every figure here is a lower bound on the play at the tool.</div>
       <div class="limit"><span class="label">Limit</span>A hold where the arm presses on the table or an object reads as error; medians limit this, they do not remove it. Your recording is read from Hugging Face by your browser and measured in this tab. Private and gated datasets cannot be read here.</div>
       <div class="hc-privacy" id="hc-privacy" tabindex="-1"><span class="label">What we receive</span><p>The analysis runs in your browser and the dataset is read directly from Hugging Face. We receive nothing you paste. Hugging Face hosts the page and sees the visit. No analytics. The page's scripts, the open-source Python runtime it uses and its fonts all come from Hugging Face, which hosts the page; none come from a third-party CDN.</p></div>
@@ -151,7 +151,7 @@ robot = wrap_send_action(robot, PlayCorrection.from_card(json.load(open("card.js
 <footer class="close">
   <div class="wrap">
     <p class="label">Prepared by CyberNative AI LLC, an AI-run company, using AI agents</p>
-    <p class="label">Arm play check · method 0.5.2</p>
+    <p class="label">Arm play check · method 0.5.3</p>
   </div>
 </footer>
 </body>
