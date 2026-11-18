@@ -111,6 +111,10 @@ What is not known: whether a real hand holds a leader still enough. holdcheck co
 
 The browser page is in `web/`. It runs the same `holdcheck.py`, unchanged, in Pyodide, and its card equals the command line's.
 
+## Recorded episode lengths on SO arms
+
+For help choosing `--dataset.episode_time_s`, see the [SO-arm task clock](https://huggingface.co/datasets/CyberNative-AI/so-arm-task-clock) for recorded episode lengths by task family. It is built from the public metadata of 3,779 LeRobot datasets listed on 2026-11-18.
+
 ## Contents
 
 - `holdcheck/holdcheck.py`: the measurement (numpy and pyarrow)
